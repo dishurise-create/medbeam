@@ -10,6 +10,6 @@ import Foundation
 /// The publishable key is designed to be public — it can only do what the
 /// database rules in supabase-setup.sql allow (read recent reports, add new ones).
 enum BackendConfig {
-    static let supabaseURL = ""          // e.g. "https://abcdefghijkl.supabase.co"
-    static let supabasePublishableKey = "" // e.g. "sb_publishable_..." or the legacy "anon" key
+    static let supabaseURL = "https://bvlfogttapmohgyvvyva.supabase.co"
+    static let supabasePublishableKey = "sb_publishable_dFeIfmrL2FZintNJE4yxJQ_kX7fS4GJ"
 }
