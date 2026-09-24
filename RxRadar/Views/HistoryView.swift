@@ -111,7 +111,9 @@ struct HistoryView: View {
                     app.reports.delete(Set(offsets.map { reports[$0].id }))
                 }
             } footer: {
-                Text("Swipe left to delete a report. Reports are anonymous.")
+                Text(app.reports.isCommunityEnabled
+                     ? "Swipe left to remove a report from this iPhone. Shared copies are anonymous and stay in the community database."
+                     : "Swipe left to delete a report. Reports are anonymous.")
             }
         }
     }

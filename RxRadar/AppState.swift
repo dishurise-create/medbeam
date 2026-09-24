@@ -121,7 +121,9 @@ final class AppState {
             lastSearchKey = key
             seedDemoData()
             if areaOverride == nil { history.record(zip: zip, medication: medication, fdaStatus: status.headline, pharmacyCount: pharmacies.count) }
-            await loadGoogleDetails(center: center)
+            async let community: Void = reports.syncCommunity(rxcui: medication.rxcui, center: center, radiusMiles: searchRadiusMiles)
+            async let google: Void = loadGoogleDetails(center: center)
+            _ = await (community, google)
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -172,6 +174,12 @@ final class AppState {
     }
 
     // MARK: - Reports
+
+    /// Pull-to-refresh: re-downloads community reports without redoing the whole search.
+    func refreshCommunityReports() async {
+        guard let medication = selectedMedication, let center else { return }
+        await reports.syncCommunity(rxcui: medication.rxcui, center: center, radiusMiles: searchRadiusMiles)
+    }
 
     /// `nil` means "Prefer not to answer" — nothing is saved.
     func submitReport(_ result: AvailabilityReport.Result?, for pharmacy: Pharmacy) {

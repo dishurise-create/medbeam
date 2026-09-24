@@ -89,6 +89,7 @@ struct ResultsView: View {
                 }
             }
             .listStyle(.insetGrouped)
+            .refreshable { await app.refreshCommunityReports() }
             .appBackground()
             .overlay {
                 if app.isLoading {
@@ -279,14 +280,15 @@ struct ResultsView: View {
     private var summaryHeader: some View {
         if let shortage = app.shortage, app.errorMessage == nil {
             VStack(alignment: .leading, spacing: 8) {
-                HStack {
+                // Stacked so neither badge gets cut off at larger text sizes
+                VStack(alignment: .leading, spacing: 6) {
                     ShortageChip(level: shortage.level)
-                    Spacer()
                     if app.demoMode { SimulatedBadge() }
                 }
                 Text(countText)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
+                CommunityStatusLine(status: app.reports.communityStatus)
                 if app.searchRadiusMiles > PharmacySearchService.searchRadii[0] {
                     Label("No pharmacies nearby, so the search was widened.", systemImage: "arrow.up.left.and.arrow.down.right")
                         .font(.caption)
@@ -294,6 +296,30 @@ struct ResultsView: View {
                 }
             }
         }
+    }
+}
+
+/// "12 community reports nearby" / "Reports: this iPhone only"
+struct CommunityStatusLine: View {
+    let status: ReportStore.CommunityStatus
+
+    var body: some View {
+        Group {
+            switch status {
+            case .notConfigured:
+                Label("Community sharing not set up — using this iPhone's reports only", systemImage: "iphone")
+            case .syncing:
+                Label("Loading community reports…", systemImage: "arrow.triangle.2.circlepath")
+            case .connected(let count):
+                Label(count == 0 ? "No community reports nearby yet — be the first!" : "\(count) community report\(count == 1 ? "" : "s") nearby (last 30 days)",
+                      systemImage: "person.3.fill")
+            case .failed:
+                Label("Couldn't reach community reports — pull down to retry", systemImage: "wifi.exclamationmark")
+                    .foregroundStyle(.orange)
+            }
+        }
+        .font(.caption)
+        .foregroundStyle(.secondary)
     }
 }
 

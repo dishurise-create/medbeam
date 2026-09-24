@@ -1,29 +1,56 @@
 import Foundation
+import CoreLocation
 import Observation
 
 /// Stores anonymous availability reports.
 ///
-/// MVP: saved on this device as a JSON file. Later this can be swapped for a shared
-/// database (e.g. CloudKit or Firebase) so every user's reports help everyone else.
-/// Only medication, pharmacy, result and time are stored — never who reported it.
+/// - Your own reports are saved on this iPhone (for History) and, when the community
+///   database is set up (see BackendConfig), shared so they help everyone nearby.
+/// - Other people's reports are downloaded for the area you search and kept in memory only.
+/// Only medication, pharmacy location, result and time are ever shared — never who reported it.
 @MainActor
 @Observable
 final class ReportStore {
-    private(set) var all: [AvailabilityReport] = []
-    private let fileURL: URL
+    enum CommunityStatus: Equatable {
+        case notConfigured
+        case syncing
+        case connected(reportCount: Int)
+        case failed(String)
+    }
 
-    init() {
+    /// Reports saved on this iPhone: your own + simulated demo reports.
+    private(set) var all: [AvailabilityReport] = []
+    /// Other users' reports for the current search area (not saved).
+    private(set) var community: [AvailabilityReport] = []
+    private(set) var communityStatus: CommunityStatus
+    private let fileURL: URL
+    private let service: CommunityReportService?
+
+    /// Unsent reports older than this are kept on the phone but not shared,
+    /// because the server would stamp them with the wrong (current) time.
+    private let maxUploadDelay: TimeInterval = 2 * 3600
+
+    init(service: CommunityReportService? = CommunityReportService.configured()) {
         let folder = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         fileURL = folder.appendingPathComponent("reports.json")
+        self.service = service
+        communityStatus = service == nil ? .notConfigured : .connected(reportCount: 0)
         load()
     }
 
+    var isCommunityEnabled: Bool { service != nil }
+
+    /// Everything the estimator should see for one medication.
     func reports(for rxcui: String, includeSimulated: Bool) -> [AvailabilityReport] {
-        all.filter { $0.rxcui == rxcui && (includeSimulated || !$0.isSimulated) }
+        let mine = all.filter { $0.rxcui == rxcui && (includeSimulated || !$0.isSimulated) }
+        // Your shared reports also come back from the server — don't count them twice
+        let myRemoteIDs = Set(all.compactMap(\.remoteID))
+        let others = community.filter { $0.rxcui == rxcui && !myRemoteIDs.contains($0.id) }
+        return mine + others
     }
 
     func add(_ result: AvailabilityReport.Result, medication: Medication, pharmacy: Pharmacy) {
-        all.append(AvailabilityReport(
+        let report = AvailabilityReport(
             id: UUID(),
             rxcui: medication.rxcui,
             pharmacyID: pharmacy.id,
@@ -34,8 +61,10 @@ final class ReportStore {
             isSimulated: false,
             medicationName: medication.shortName,
             pharmacyName: pharmacy.name
-        ))
+        )
+        all.append(report)
         save()
+        Task { await uploadPending() }
     }
 
     /// Your own reports, newest first (for the History tab).
@@ -43,12 +72,59 @@ final class ReportStore {
         all.filter { !$0.isSimulated }.sorted { $0.timestamp > $1.timestamp }
     }
 
+    var realReportCount: Int { all.filter { !$0.isSimulated }.count }
+
+    // MARK: - Community sync
+
+    /// Shares any of your reports that haven't been sent yet (e.g. you were offline).
+    func uploadPending() async {
+        guard let service else { return }
+        let pending = all.filter {
+            !$0.isSimulated && $0.remoteID == nil && Date.now.timeIntervalSince($0.timestamp) < maxUploadDelay
+        }
+        for report in pending {
+            do {
+                let saved = try await service.upload(
+                    rxcui: report.rxcui,
+                    coordinate: CLLocationCoordinate2D(latitude: report.latitude, longitude: report.longitude),
+                    inStock: report.result == .inStock
+                )
+                if let index = all.firstIndex(where: { $0.id == report.id }) {
+                    all[index].remoteID = saved.id
+                }
+            } catch {
+                communityStatus = .failed(error.localizedDescription)
+                break   // probably offline — try again on the next search
+            }
+        }
+        save()
+    }
+
+    /// Downloads other people's reports for a medication around the searched area.
+    func syncCommunity(rxcui: String, center: CLLocationCoordinate2D, radiusMiles: Double) async {
+        guard let service else { return }
+        communityStatus = .syncing
+        await uploadPending()
+        do {
+            // Include a margin so reports from pharmacies just outside the circle still count as "nearby"
+            let fetched = try await service.fetch(rxcui: rxcui, near: center, radiusMiles: radiusMiles + AvailabilityEstimator.areaRadiusMiles)
+            community = fetched
+            let myRemoteIDs = Set(all.compactMap(\.remoteID))
+            communityStatus = .connected(reportCount: fetched.filter { !myRemoteIDs.contains($0.id) }.count)
+        } catch {
+            community = []
+            communityStatus = .failed(error.localizedDescription)
+        }
+    }
+
+    // MARK: - Local data
+
+    /// Removes reports from this iPhone. (Shared copies stay in the community database,
+    /// which only holds anonymous data and can't be edited by the app.)
     func delete(_ ids: Set<UUID>) {
         all.removeAll { ids.contains($0.id) }
         save()
     }
-
-    var realReportCount: Int { all.filter { !$0.isSimulated }.count }
 
     func clearSimulated() {
         all.removeAll { $0.isSimulated }

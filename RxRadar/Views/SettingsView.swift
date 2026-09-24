@@ -89,6 +89,10 @@ struct SettingsView: View {
 
             // MARK: Data
             Section {
+                LabeledContent("Community sharing") {
+                    Text(app.reports.isCommunityEnabled ? "On" : "Not set up")
+                        .foregroundStyle(app.reports.isCommunityEnabled ? .green : .secondary)
+                }
                 Toggle("Demo mode", isOn: $app.demoMode)
                 LabeledContent("Your reports", value: "\(app.reports.realReportCount)")
                 LabeledContent("Saved searches", value: "\(app.history.entries.count)")
@@ -198,7 +202,8 @@ struct InfoPage: View {
     static let privacy = InfoPage(title: "Privacy", sections: [
         ("What we never ask for", "Your name, prescription number, doctor, diagnosis, insurance or medical history."),
         ("What a report contains", "Only the medication, pharmacy, whether they had it, and the time. \"Prefer not to answer\" saves nothing."),
-        ("Where data is stored", "Your history, reports and settings are stored on this iPhone. Your Google API key is kept in the iPhone's secure Keychain."),
+        ("What is shared", "When community sharing is on, each report sends only the medication ID, the pharmacy's map location, whether it had the medication, and the time. No name, account, device ID or your location."),
+        ("Where data is stored", "Your history and settings stay on this iPhone. Your Google API key is kept in the iPhone's secure Keychain."),
         ("Location", "RxRadar uses the ZIP code you type. It does not track your GPS location."),
     ])
 

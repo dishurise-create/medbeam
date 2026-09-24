@@ -193,7 +193,9 @@ struct ReportPromptView: View {
                 Button("Prefer not to answer") { dismiss() }
                     .controlSize(.large)
 
-                Text("Anonymous. We only save the medication, pharmacy, answer and time.")
+                Text(app.reports.isCommunityEnabled
+                     ? "Anonymous. Shared with other RxRadar users: only the medication, pharmacy, answer and time."
+                     : "Anonymous. We only save the medication, pharmacy, answer and time.")
                     .font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.center)
             }
         }

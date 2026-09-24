@@ -89,6 +89,12 @@ struct AvailabilityReport: Codable, Identifiable {
     /// Names kept only on this device so the History tab can show them.
     var medicationName: String? = nil
     var pharmacyName: String? = nil
+    /// Set once this report has been shared to the community database.
+    var remoteID: UUID? = nil
+    /// True for reports downloaded from other users (never saved on this iPhone).
+    var fromCommunity: Bool? = nil
+
+    var isCommunity: Bool { fromCommunity == true }
 
     var location: CLLocation { CLLocation(latitude: latitude, longitude: longitude) }
 }
