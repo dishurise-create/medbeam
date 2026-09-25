@@ -2,7 +2,7 @@ import SwiftUI
 
 enum Disclaimer {
     static let estimate = "This is an estimate based on national supply, FDA shortage data, and local availability reports. It does not guarantee the medication is in stock — call the pharmacy to confirm."
-    static let medical = "RxRadar is an information tool, not medical advice. Never change your medication or dose without talking to your doctor or pharmacist."
+    static let medical = "MedBeam is an information tool, not medical advice. Never change your medication or dose without talking to your doctor or pharmacist."
 }
 
 extension AvailabilityEstimate.Tier {

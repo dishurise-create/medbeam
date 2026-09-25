@@ -84,7 +84,7 @@ struct SettingsView: View {
             } header: {
                 Text("Ratings & hours (Google)")
             } footer: {
-                Text("Apple Maps doesn't share ratings or hours with apps, so RxRadar can get them from Google Places. Create a key in Google Cloud Console with \"Places API (New)\" enabled. Google includes a free monthly allowance; billing must be turned on. The key is stored in your iPhone's Keychain.")
+                Text("Apple Maps doesn't share ratings or hours with apps, so MedBeam can get them from Google Places. Create a key in Google Cloud Console with \"Places API (New)\" enabled. Google includes a free monthly allowance; billing must be turned on. The key is stored in your iPhone's Keychain.")
             }
 
             // MARK: Data
@@ -184,11 +184,11 @@ struct InfoPage: View {
     }
 
     static let estimates = InfoPage(title: "How estimates work", sections: [
-        ("No live inventory", "No public system shares pharmacies' live prescription stock. RxRadar never claims to know exactly what's on the shelf."),
-        ("Step 1: National supply", "RxRadar checks the official FDA Drug Shortages database for your exact medication, strength and form, and counts how many manufacturers report it as available. This works even with zero users."),
+        ("No live inventory", "No public system shares pharmacies' live prescription stock. MedBeam never claims to know exactly what's on the shelf."),
+        ("Step 1: National supply", "MedBeam checks the official FDA Drug Shortages database for your exact medication, strength and form, and counts how many manufacturers report it as available. This works even with zero users."),
         ("Step 2: Local reports", "People who check a pharmacy can anonymously report whether it had the medication. Recent reports count the most; a report's weight halves every 4 days, and reports older than 30 days are ignored."),
         ("Step 3: Nearby pharmacies", "Reports from other pharmacies within 5 miles count a little, because shortages are often regional."),
-        ("Percentages vs. labels", "Until a pharmacy has recent reports, RxRadar shows Likely, Uncertain or Unlikely instead of a percentage, with a confidence level, so it never pretends to be more precise than it is."),
+        ("Percentages vs. labels", "Until a pharmacy has recent reports, MedBeam shows Likely, Uncertain or Unlikely instead of a percentage, with a confidence level, so it never pretends to be more precise than it is."),
         ("Official vs. detected", "\"Official FDA shortage\" only appears when the FDA lists one. Local declines detected from reports are labeled separately and are never called official shortages."),
     ])
 
@@ -204,11 +204,11 @@ struct InfoPage: View {
         ("What a report contains", "Only the medication, pharmacy, whether they had it, and the time. \"Prefer not to answer\" saves nothing."),
         ("What is shared", "When community sharing is on, each report sends only the medication ID, the pharmacy's map location, whether it had the medication, and the time. No name, account, device ID or your location."),
         ("Where data is stored", "Your history and settings stay on this iPhone. Your Google API key is kept in the iPhone's secure Keychain."),
-        ("Location", "RxRadar uses the ZIP code you type. It does not track your GPS location."),
+        ("Location", "MedBeam uses the ZIP code you type. It does not track your GPS location."),
     ])
 
     static let medical = InfoPage(title: "Medical safety", sections: [
-        ("Information only", "RxRadar is an information tool, not medical advice. It does not diagnose or treat any condition."),
+        ("Information only", "MedBeam is an information tool, not medical advice. It does not diagnose or treat any condition."),
         ("Your medication", "Never change your medication, dose or schedule without talking to your doctor or pharmacist."),
         ("Emergencies", "If you or someone else is having a medical emergency, call 911."),
     ])
@@ -218,6 +218,6 @@ struct InfoPage: View {
         ("RxNorm", "The National Library of Medicine's standard drug names, used to match your exact medication, strength and form."),
         ("Apple Maps", "Pharmacy names, addresses, phone numbers and locations."),
         ("Google Places (optional)", "Ratings and opening hours, when a Google API key is added in Settings."),
-        ("Community reports", "Anonymous \"had it / didn't\" answers from people using RxRadar."),
+        ("Community reports", "Anonymous \"had it / didn't\" answers from people using MedBeam."),
     ])
 }

@@ -1,6 +1,6 @@
 # Turning on community reports (Supabase)
 
-Without this, each iPhone only sees its own reports. With it, every RxRadar user's
+Without this, each iPhone only sees its own reports. With it, every MedBeam user's
 anonymous "had it / didn't" answers help everyone nearby. It's free.
 
 ## 1. Create the database (about 5 minutes)
@@ -24,7 +24,7 @@ limits spam (max 3 reports per minute per pharmacy).
 3. Copy the **publishable key** (starts with `sb_publishable_`). On older projects,
    use the **anon public** key instead.
    ⚠️ Never use the **secret** / **service_role** key in the app.
-4. In Xcode, open `RxRadar/Config/BackendConfig.swift` and paste them:
+4. In Xcode, open `MedBeam/Config/BackendConfig.swift` and paste them:
    ```swift
    static let supabaseURL = "https://abcdefgh.supabase.co"
    static let supabasePublishableKey = "sb_publishable_..."

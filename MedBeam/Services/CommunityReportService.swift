@@ -1,7 +1,7 @@
 import Foundation
 import CoreLocation
 
-/// Shares anonymous availability reports between all RxRadar users through a
+/// Shares anonymous availability reports between all MedBeam users through a
 /// Supabase (PostgreSQL) database, using its built-in REST API — no extra libraries.
 ///
 /// Each shared report contains ONLY: medication ID (RxCUI), the pharmacy's map

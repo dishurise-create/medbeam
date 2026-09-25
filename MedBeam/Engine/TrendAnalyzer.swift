@@ -38,7 +38,7 @@ struct LocalTrend {
 }
 
 /// Detects local trends from community reports. Everything here is labeled as
-/// "detected by RxRadar", separate from the official FDA shortage status.
+/// "detected by MedBeam", separate from the official FDA shortage status.
 enum TrendAnalyzer {
     static let weeks = 5
     static let minReportsPerWeek = 3

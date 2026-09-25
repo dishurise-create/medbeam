@@ -3,7 +3,7 @@ import Security
 
 /// Tiny wrapper around the iOS Keychain for storing secrets like API keys.
 enum KeychainStore {
-    private static let service = "com.cac.RxRadar"
+    private static let service = Bundle.main.bundleIdentifier ?? "com.dbandarupalli.MedBeam"
 
     static func set(_ value: String, for key: String) {
         let query: [String: Any] = [

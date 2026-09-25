@@ -1,7 +1,7 @@
 import SwiftUI
 
 @main
-struct RxRadarApp: App {
+struct MedBeamApp: App {
     @State private var settings: AppSettings
     @State private var appState: AppState
 

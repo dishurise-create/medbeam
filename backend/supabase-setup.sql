@@ -1,4 +1,4 @@
--- RxRadar community reports database
+-- MedBeam community reports database
 -- Run this once in your Supabase project: Dashboard → SQL Editor → New query → paste → Run.
 --
 -- Privacy: a report stores ONLY the medication ID, the pharmacy's location,

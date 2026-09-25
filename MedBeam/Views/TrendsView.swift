@@ -82,14 +82,14 @@ struct TrendsView: View {
                         .foregroundStyle(.orange)
                 }
             } header: {
-                SourceHeader(title: "Near \(app.zip)", source: "Detected by RxRadar")
+                SourceHeader(title: "Near \(app.zip)", source: "Detected by MedBeam")
             } footer: {
                 Text("Local trends come from anonymous reports and our model. A local decline is NOT the same as an official FDA shortage.")
             }
 
             Section("What these mean") {
                 LegendRow(color: .red, title: "Official FDA shortage", detail: "The FDA has confirmed a national shortage.")
-                LegendRow(color: .orange, title: "Local decline", detail: "Fewer people nearby are finding it. Detected by RxRadar, not confirmed by the FDA.")
+                LegendRow(color: .orange, title: "Local decline", detail: "Fewer people nearby are finding it. Detected by MedBeam, not confirmed by the FDA.")
                 LegendRow(color: .gray, title: "One pharmacy out", detail: "A single pharmacy was temporarily out of stock.")
             }
         }

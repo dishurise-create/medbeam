@@ -90,7 +90,7 @@ struct HistoryView: View {
     private var myReports: some View {
         let reports = app.reports.myReports
         if reports.isEmpty {
-            emptyState("No reports yet", icon: "checkmark.bubble", text: "After you check a pharmacy, tell RxRadar whether they had it. Your answers appear here.")
+            emptyState("No reports yet", icon: "checkmark.bubble", text: "After you check a pharmacy, tell MedBeam whether they had it. Your answers appear here.")
         } else {
             Section {
                 ForEach(reports) { report in

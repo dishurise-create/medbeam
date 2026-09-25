@@ -7,11 +7,11 @@
 	objects = {
 
 /* Begin PBXFileReference section */
-		A10000000000000000000001 /* RxRadar.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = RxRadar.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A10000000000000000000001 /* MedBeam.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MedBeam.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		A10000000000000000000002 /* RxRadar */ = {isa = PBXFileSystemSynchronizedRootGroup; path = RxRadar; sourceTree = "<group>"; };
+		A10000000000000000000002 /* MedBeam */ = {isa = PBXFileSystemSynchronizedRootGroup; path = MedBeam; sourceTree = "<group>"; };
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -28,7 +28,7 @@
 		A10000000000000000000004 = {
 			isa = PBXGroup;
 			children = (
-				A10000000000000000000002 /* RxRadar */,
+				A10000000000000000000002 /* MedBeam */,
 				A10000000000000000000005 /* Products */,
 			);
 			sourceTree = "<group>";
@@ -36,7 +36,7 @@
 		A10000000000000000000005 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				A10000000000000000000001 /* RxRadar.app */,
+				A10000000000000000000001 /* MedBeam.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -44,9 +44,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		A10000000000000000000006 /* RxRadar */ = {
+		A10000000000000000000006 /* MedBeam */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = A1000000000000000000000A /* Build configuration list for PBXNativeTarget "RxRadar" */;
+			buildConfigurationList = A1000000000000000000000A /* Build configuration list for PBXNativeTarget "MedBeam" */;
 			buildPhases = (
 				A10000000000000000000007 /* Sources */,
 				A10000000000000000000003 /* Frameworks */,
@@ -57,13 +57,13 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				A10000000000000000000002 /* RxRadar */,
+				A10000000000000000000002 /* MedBeam */,
 			);
-			name = RxRadar;
+			name = MedBeam;
 			packageProductDependencies = (
 			);
-			productName = RxRadar;
-			productReference = A10000000000000000000001 /* RxRadar.app */;
+			productName = MedBeam;
+			productReference = A10000000000000000000001 /* MedBeam.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -81,7 +81,7 @@
 					};
 				};
 			};
-			buildConfigurationList = A1000000000000000000000B /* Build configuration list for PBXProject "RxRadar" */;
+			buildConfigurationList = A1000000000000000000000B /* Build configuration list for PBXProject "MedBeam" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -95,7 +95,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				A10000000000000000000006 /* RxRadar */,
+				A10000000000000000000006 /* MedBeam */,
 			);
 		};
 /* End PBXProject section */
@@ -168,7 +168,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = RxRadar;
+				INFOPLIST_KEY_CFBundleDisplayName = MedBeam;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -178,7 +178,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.cac.RxRadar;
+				PRODUCT_BUNDLE_IDENTIFIER = com.dbandarupalli.MedBeam;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
@@ -195,7 +195,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = RxRadar;
+				INFOPLIST_KEY_CFBundleDisplayName = MedBeam;
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -205,7 +205,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = com.cac.RxRadar;
+				PRODUCT_BUNDLE_IDENTIFIER = com.dbandarupalli.MedBeam;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
@@ -216,7 +216,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		A1000000000000000000000A /* Build configuration list for PBXNativeTarget "RxRadar" */ = {
+		A1000000000000000000000A /* Build configuration list for PBXNativeTarget "MedBeam" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				A1000000000000000000000E /* Debug */,
@@ -225,7 +225,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		A1000000000000000000000B /* Build configuration list for PBXProject "RxRadar" */ = {
+		A1000000000000000000000B /* Build configuration list for PBXProject "MedBeam" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				A1000000000000000000000C /* Debug */,
