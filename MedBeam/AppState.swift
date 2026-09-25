@@ -52,6 +52,15 @@ final class AppState {
     let settings: AppSettings
     let reports = ReportStore()
     let history = HistoryStore()
+    let watchlist = WatchlistStore()
+
+    /// Shortage Watch card on the home screen: FDA status per featured medication
+    private(set) var shortageWatch: [String: DrugShortageSummary] = [:]
+    private(set) var shortageWatchFailed = false
+    private var homeDataLoadedAt: Date?
+    /// ZIP → map coordinate, so the home screen doesn't look it up every time
+    private var zipCenters: [String: CLLocationCoordinate2D] = [:]
+    private let shortageWatchService = ShortageWatchService()
     private let rxNorm = RxNormService()
     private let fda = FDAShortageService()
     private let places = PharmacySearchService()
@@ -142,6 +151,63 @@ final class AppState {
         } catch {
             googleError = error.localizedDescription
         }
+    }
+
+    // MARK: - Home screen data
+
+    /// Save / unsave a medication in "My medications".
+    func toggleWatch(_ medication: Medication) {
+        let adding = !watchlist.contains(medication)
+        watchlist.toggle(medication)
+        if adding { Task { await refreshWatchlistStatuses() } }
+    }
+
+    /// Loads Shortage Watch and "My medications" statuses. Cached for 30 minutes.
+    func loadHomeData(force: Bool = false) async {
+        if !force, let loaded = homeDataLoadedAt, Date.now.timeIntervalSince(loaded) < 1800 { return }
+        homeDataLoadedAt = .now
+        async let watch: Void = loadShortageWatch()
+        async let mine: Void = refreshWatchlistStatuses()
+        _ = await (watch, mine)
+    }
+
+    private func loadShortageWatch() async {
+        var results: [String: DrugShortageSummary] = [:]
+        var failed = false
+        await withTaskGroup(of: (String, DrugShortageSummary?).self) { group in
+            for drug in WatchedDrug.featured {
+                group.addTask { [shortageWatchService] in
+                    (drug.id, try? await shortageWatchService.summary(for: drug))
+                }
+            }
+            for await (id, summary) in group {
+                if let summary { results[id] = summary } else { failed = true }
+            }
+        }
+        shortageWatch = results
+        shortageWatchFailed = failed && results.isEmpty
+    }
+
+    func refreshWatchlistStatuses() async {
+        let center = await zipCenter()
+        for medication in watchlist.medications {
+            let details = (try? await rxNorm.details(for: medication)) ?? .basic(medication)
+            let fdaStatus = await fda.status(for: details)
+            var counts: (total: Int, hadIt: Int)?
+            if let center {
+                counts = await reports.nearbyCounts(rxcui: medication.rxcui, center: center, radiusMiles: 10)
+            }
+            watchlist.setStatus(WatchStatus(fda: fdaStatus, nearbyReports: counts?.total, nearbyHadIt: counts?.hadIt),
+                                for: medication.rxcui)
+        }
+    }
+
+    private func zipCenter() async -> CLLocationCoordinate2D? {
+        guard isZipValid else { return nil }
+        if let cached = zipCenters[zip] { return cached }
+        guard let coordinate = try? await places.coordinate(forZIP: zip) else { return nil }
+        zipCenters[zip] = coordinate
+        return coordinate
     }
 
     // MARK: - Estimates

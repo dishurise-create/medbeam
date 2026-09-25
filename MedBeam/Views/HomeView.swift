@@ -2,15 +2,17 @@ import SwiftUI
 
 struct HomeView: View {
     @Environment(AppState.self) private var app
-    @State private var showMedicationSearch = false
+    /// Set to open the medication search sheet (optionally pre-filled)
+    @State private var medicationSearch: MedicationSearchRequest?
+    @AppStorage("hideHowItWorks") private var hideHowItWorks = false
     @FocusState private var zipFocused: Bool
 
     var body: some View {
         @Bindable var app = app
 
         ScrollView {
-            VStack(alignment: .leading, spacing: 28) {
-                header
+            VStack(alignment: .leading, spacing: 24) {
+                BrandHeader()
 
                 VStack(spacing: 0) {
                     // ZIP code
@@ -48,7 +50,7 @@ struct HomeView: View {
                     // Medication
                     Button {
                         zipFocused = false
-                        showMedicationSearch = true
+                        openMedicationSearch()
                     } label: {
                         HStack(spacing: 14) {
                             FieldIcon(systemImage: "pills.fill")
@@ -85,6 +87,14 @@ struct HomeView: View {
                 .controlSize(.large)
                 .disabled(!app.canSearch)
 
+                if !hideHowItWorks {
+                    HowItWorksCard { withAnimation { hideHowItWorks = true } }
+                }
+
+                MyMedicationsSection(onSelect: open)
+
+                ShortageWatchSection { drug in openMedicationSearch(drug.searchQuery) }
+
                 if !app.history.entries.isEmpty {
                     recentSearches
                 }
@@ -99,6 +109,12 @@ struct HomeView: View {
             .padding(.bottom, 32)
         }
         .scrollDismissesKeyboard(.interactively)
+        // Blurred strip behind the clock/battery so scrolled content stays readable
+        .safeAreaInset(edge: .top, spacing: 0) {
+            Color.clear.frame(height: 0).background(.bar, ignoresSafeAreaEdges: .top)
+        }
+        .refreshable { await app.loadHomeData(force: true) }
+        .task { await app.loadHomeData() }
         .appBackground()
         .toolbar {
             ToolbarItemGroup(placement: .keyboard) {
@@ -106,31 +122,25 @@ struct HomeView: View {
                 Button("Done") { zipFocused = false }
             }
         }
-        .sheet(isPresented: $showMedicationSearch) {
-            MedicationSearchSheet()
+        .sheet(item: $medicationSearch) { request in
+            MedicationSearchSheet(initialQuery: request.text)
         }
         #if DEBUG
         .task { await runAutomationIfRequested() }
         #endif
     }
 
-    private var header: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(spacing: 8) {
-                Image("Logo")
-                    .resizable()
-                    .frame(width: 40, height: 40)
-                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                    .accessibilityHidden(true)
-                Text("MedBeam").font(.title3.bold())
-            }
-            .padding(.bottom, 6)
+    private func openMedicationSearch(_ text: String = "") {
+        medicationSearch = MedicationSearchRequest(text: text)
+    }
 
-            Text("Find your medication.")
-                .font(.system(.largeTitle, design: .rounded, weight: .bold))
-            Text("See which pharmacies near you are most likely to have it in stock.")
-                .font(.body)
-                .foregroundStyle(.secondary)
+    /// Opens results for a saved medication (asks for a ZIP first if there isn't one).
+    private func open(_ medication: Medication) {
+        app.selectedMedication = medication
+        if app.isZipValid {
+            app.showResults()
+        } else {
+            zipFocused = true
         }
     }
 
@@ -181,6 +191,11 @@ struct HomeView: View {
     #endif
 }
 
+struct MedicationSearchRequest: Identifiable {
+    let id = UUID()
+    let text: String
+}
+
 private struct FieldIcon: View {
     let systemImage: String
 
@@ -196,7 +211,12 @@ private struct FieldIcon: View {
 struct MedicationSearchSheet: View {
     @Environment(AppState.self) private var app
     @Environment(\.dismiss) private var dismiss
-    @State private var query = ""
+    @State private var query: String
+
+    /// `initialQuery` pre-fills the search (e.g. when tapping a Shortage Watch tile).
+    init(initialQuery: String = "") {
+        _query = State(initialValue: initialQuery)
+    }
     @State private var results: [Medication] = []
     @State private var isSearching = false
     @State private var message: String?
@@ -251,6 +271,7 @@ struct MedicationSearchSheet: View {
                 ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
             }
             .task(id: query) { await search() }
+
         }
     }
 

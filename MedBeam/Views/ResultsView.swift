@@ -109,6 +109,16 @@ struct ResultsView: View {
         .navigationTitle(app.selectedMedication?.shortName ?? "Results")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
+            if let medication = app.selectedMedication {
+                ToolbarItem(placement: .topBarTrailing) {
+                    let saved = app.watchlist.contains(medication)
+                    Button { app.toggleWatch(medication) } label: {
+                        Label(saved ? "Remove from My medications" : "Save to My medications",
+                              systemImage: saved ? "star.fill" : "star")
+                    }
+                    .tint(saved ? .yellow : nil)
+                }
+            }
             ToolbarItem(placement: .topBarTrailing) {
                 Button { showTrends = true } label: {
                     Label("Trends", systemImage: "chart.line.uptrend.xyaxis")

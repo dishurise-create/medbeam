@@ -117,6 +117,14 @@ final class ReportStore {
         }
     }
 
+    /// Counts community reports for a medication near a point (for "My medications").
+    /// nil when community sharing isn't set up or the server can't be reached.
+    func nearbyCounts(rxcui: String, center: CLLocationCoordinate2D, radiusMiles: Double) async -> (total: Int, hadIt: Int)? {
+        guard let service else { return nil }
+        guard let reports = try? await service.fetch(rxcui: rxcui, near: center, radiusMiles: radiusMiles) else { return nil }
+        return (reports.count, reports.filter { $0.result == .inStock }.count)
+    }
+
     // MARK: - Local data
 
     /// Removes reports from this iPhone. (Shared copies stay in the community database,
