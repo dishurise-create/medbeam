@@ -91,16 +91,6 @@ struct HomeView: View {
                     HowItWorksCard { withAnimation { hideHowItWorks = true } }
                 }
 
-                ShortageWatchSection(
-                    onSelectSaved: open,
-                    onSelectPopular: { drug in openMedicationSearch(drug.searchQuery) },
-                    onAdd: { openMedicationSearch() }
-                )
-
-                if !app.history.entries.isEmpty {
-                    recentSearches
-                }
-
                 Label("Anonymous. No account or prescription info needed.", systemImage: "lock.fill")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
@@ -115,8 +105,6 @@ struct HomeView: View {
         .safeAreaInset(edge: .top, spacing: 0) {
             Color.clear.frame(height: 0).background(.bar, ignoresSafeAreaEdges: .top)
         }
-        .refreshable { await app.loadHomeData(force: true) }
-        .task { await app.loadHomeData() }
         .appBackground()
         .toolbar {
             ToolbarItemGroup(placement: .keyboard) {
@@ -134,49 +122,6 @@ struct HomeView: View {
 
     private func openMedicationSearch(_ text: String = "") {
         medicationSearch = MedicationSearchRequest(text: text)
-    }
-
-    /// Opens results for a saved medication (asks for a ZIP first if there isn't one).
-    private func open(_ medication: Medication) {
-        app.selectedMedication = medication
-        if app.isZipValid {
-            app.showResults()
-        } else {
-            zipFocused = true
-        }
-    }
-
-    private var recentSearches: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Text("Recent").font(.headline)
-                Spacer()
-                Button("See all") { app.selectedTab = .history }.font(.subheadline)
-            }
-            VStack(spacing: 0) {
-                ForEach(Array(app.history.entries.prefix(3).enumerated()), id: \.element.id) { index, entry in
-                    if index > 0 { Divider().padding(.leading, 16) }
-                    Button {
-                        app.showResults(zip: entry.zip, medication: entry.medication)
-                    } label: {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(entry.medication.shortName).font(.subheadline.weight(.medium)).lineLimit(1)
-                                Text("ZIP \(entry.zip) · \(entry.date.formatted(.relative(presentation: .named)))")
-                                    .font(.caption).foregroundStyle(.secondary)
-                            }
-                            Spacer()
-                            Image(systemName: "arrow.up.forward").font(.caption.bold()).foregroundStyle(.tertiary)
-                        }
-                        .padding(.horizontal, 16)
-                        .padding(.vertical, 12)
-                        .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                }
-            }
-            .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-        }
     }
 
     #if DEBUG
@@ -214,10 +159,13 @@ struct MedicationSearchSheet: View {
     @Environment(AppState.self) private var app
     @Environment(\.dismiss) private var dismiss
     @State private var query: String
+    private let onPick: ((Medication) -> Void)?
 
     /// `initialQuery` pre-fills the search (e.g. when tapping a Shortage Watch tile).
-    init(initialQuery: String = "") {
+    /// `onPick` runs after a medication is chosen (e.g. to open results right away).
+    init(initialQuery: String = "", onPick: ((Medication) -> Void)? = nil) {
         _query = State(initialValue: initialQuery)
+        self.onPick = onPick
     }
     @State private var results: [Medication] = []
     @State private var isSearching = false
@@ -246,6 +194,7 @@ struct MedicationSearchSheet: View {
                                 UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
                                 app.selectedMedication = med
                                 dismiss()
+                                onPick?(med)
                             } label: {
                                 VStack(alignment: .leading, spacing: 3) {
                                     Text(med.shortName).foregroundStyle(.primary)

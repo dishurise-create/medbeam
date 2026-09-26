@@ -41,6 +41,10 @@ struct RootView: View {
             .tabItem { Label("Search", systemImage: "magnifyingglass") }
             .tag(AppState.Tab.home)
 
+            NavigationStack { FavoritesView() }
+                .tabItem { Label("Favorites", systemImage: "star.fill") }
+                .tag(AppState.Tab.favorites)
+
             NavigationStack { HistoryView() }
                 .tabItem { Label("History", systemImage: "clock.arrow.circlepath") }
                 .tag(AppState.Tab.history)

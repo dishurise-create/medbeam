@@ -5,7 +5,7 @@ import Observation
 @MainActor
 @Observable
 final class AppState {
-    enum Tab: Hashable { case home, history, settings }
+    enum Tab: Hashable { case home, favorites, history, settings }
     enum Route: Hashable { case results }
 
     var selectedTab: Tab = .home
