@@ -70,7 +70,9 @@ final class AppSettings {
     var googleAPIKey: String {
         didSet { KeychainStore.set(googleAPIKey.trimmingCharacters(in: .whitespacesAndNewlines), for: "googlePlacesKey") }
     }
-    var hasGoogleKey: Bool { !googleAPIKey.trimmingCharacters(in: .whitespaces).isEmpty }
+    var hasGoogleKey: Bool {
+        FeatureFlags.googleRatingsAndHours && !googleAPIKey.trimmingCharacters(in: .whitespaces).isEmpty
+    }
 
     init() {
         let d = UserDefaults.standard

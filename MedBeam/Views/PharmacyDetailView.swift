@@ -35,7 +35,8 @@ struct PharmacyDetailView: View {
                         if let url = place?.googleMapsURL {
                             ActionButton(title: "Google Maps", systemImage: "star.bubble.fill") { openURL(url) }
                         } else {
-                            ActionButton(title: "Apple Maps", systemImage: "map.fill") { pharmacy.mapItem.openInMaps() }
+                            // Apple Maps' place page shows the pharmacy's hours, ratings and reviews
+                            ActionButton(title: "Hours & reviews", systemImage: "clock.fill") { pharmacy.mapItem.openInMaps() }
                         }
                     }
                     .listRowInsets(EdgeInsets(top: 8, leading: 12, bottom: 8, trailing: 12))
@@ -117,7 +118,7 @@ struct PharmacyDetailView: View {
             } footer: {
                 Text("Ratings and hours from Google. Pharmacy counter hours may differ from store hours.")
             }
-        } else if !settings.hasGoogleKey {
+        } else if FeatureFlags.googleRatingsAndHours && !settings.hasGoogleKey {
             Section {
                 Label("Add a Google API key in Settings to see ratings and hours here.", systemImage: "star.bubble")
                     .font(.footnote).foregroundStyle(.secondary)

@@ -6,6 +6,8 @@ struct SettingsView: View {
     @State private var confirmDelete = false
     @State private var keyDraft = ""
     @State private var showKey = false
+    @State private var versionTaps = 0
+    @AppStorage("showPresentationTools") private var showPresentationTools = false
 
     var body: some View {
         @Bindable var settings = settings
@@ -42,7 +44,8 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
             }
 
-            // MARK: Ratings & hours
+            // MARK: Ratings & hours (turned off in the App Store version — see FeatureFlags)
+            if FeatureFlags.googleRatingsAndHours {
             Section {
                 HStack {
                     Group {
@@ -86,6 +89,7 @@ struct SettingsView: View {
             } footer: {
                 Text("Apple Maps doesn't share ratings or hours with apps, so MedBeam can get them from Google Places. Create a key in Google Cloud Console with \"Places API (New)\" enabled. Google includes a free monthly allowance; billing must be turned on. The key is stored in your iPhone's Keychain.")
             }
+            }
 
             // MARK: Data
             Section {
@@ -93,14 +97,26 @@ struct SettingsView: View {
                     Text(app.reports.isCommunityEnabled ? "On" : "Not set up")
                         .foregroundStyle(app.reports.isCommunityEnabled ? .green : .secondary)
                 }
-                Toggle("Demo mode (for presentations)", isOn: $app.demoMode)
                 LabeledContent("Your reports", value: "\(app.reports.realReportCount)")
                 LabeledContent("Saved searches", value: "\(app.history.entries.count)")
                 Button("Delete all data on this iPhone", role: .destructive) { confirmDelete = true }
             } header: {
                 Text("Data")
-            } footer: {
-                Text("Leave demo mode off for normal use. When on, it adds clearly labeled simulated reports so the app can be demonstrated. Simulated reports are never shared with other users.")
+            }
+
+            // MARK: Presentation tools (hidden: tap Version 5 times)
+            if showPresentationTools || app.demoMode {
+                Section {
+                    Toggle("Demo mode", isOn: $app.demoMode)
+                    Button("Hide presentation tools") {
+                        app.demoMode = false
+                        showPresentationTools = false
+                    }
+                } header: {
+                    Text("Presentation tools")
+                } footer: {
+                    Text("For demonstrations only. Demo mode adds clearly labeled simulated reports. Simulated reports are never shared with other users.")
+                }
             }
 
             // MARK: Important info
@@ -117,6 +133,14 @@ struct SettingsView: View {
 
             Section {
                 LabeledContent("Version", value: Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "1.0")
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        versionTaps += 1
+                        if versionTaps >= 5 {
+                            versionTaps = 0
+                            withAnimation { showPresentationTools = true }
+                        }
+                    }
                 Text("Built for the 2026 Congressional App Challenge.")
                     .font(.footnote).foregroundStyle(.secondary)
             } header: {
@@ -204,7 +228,7 @@ struct InfoPage: View {
         ("What we never ask for", "Your name, prescription number, doctor, diagnosis, insurance or medical history."),
         ("What a report contains", "Only the medication, pharmacy, whether they had it, and the time. \"Prefer not to answer\" saves nothing."),
         ("What is shared", "When community sharing is on, each report sends only the medication ID, the pharmacy's map location, whether it had the medication, and the time. No name, account, device ID or your location."),
-        ("Where data is stored", "Your history and settings stay on this iPhone. Your Google API key is kept in the iPhone's secure Keychain."),
+        ("Where data is stored", "Your search history, saved medications, your own reports and settings stay on this iPhone."),
         ("Location", "MedBeam uses the ZIP code you type. It does not track your GPS location."),
     ])
 
@@ -218,7 +242,6 @@ struct InfoPage: View {
         ("FDA Drug Shortages", "Official U.S. Food and Drug Administration shortage data through openFDA (open.fda.gov). Updated by the FDA as manufacturers report."),
         ("RxNorm", "The National Library of Medicine's standard drug names, used to match your exact medication, strength and form."),
         ("Apple Maps", "Pharmacy names, addresses, phone numbers and locations."),
-        ("Google Places (optional)", "Ratings and opening hours, when a Google API key is added in Settings."),
         ("FDA NDC Directory & Enforcement Reports", "How many approved products exist for a medication, and any recalls in the last 6 months (open.fda.gov)."),
         ("Medicaid NADAC", "The government's weekly survey of what pharmacies pay for medications (data.medicaid.gov). Rising prices can signal tight supply."),
         ("Community reports", "Anonymous \"had it / didn't\" answers from people using MedBeam."),

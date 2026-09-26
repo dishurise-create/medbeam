@@ -3,7 +3,7 @@ import MapKit
 
 /// Finds pharmacies with Apple's built-in MapKit search (free, no API key).
 /// MapKit gives name, address, phone and website. It does NOT give ratings or hours to
-/// third-party apps, so those come from Google (optional, see GooglePlacesService).
+/// third-party apps; the pharmacy card links to Apple Maps, which shows them.
 ///
 /// Apple limits how many searches an app can make per minute, so each lookup uses
 /// only two requests.
