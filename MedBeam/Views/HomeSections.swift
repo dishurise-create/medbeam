@@ -174,6 +174,11 @@ private struct WatchRow: View {
                     Label(status.fda.level.headline, systemImage: status.fda.level == .active ? "exclamationmark.octagon.fill" : "checkmark.seal.fill")
                         .font(.caption)
                         .foregroundStyle(status.fda.level == .active ? .red : .green)
+                    if let risk = status.supplyRisk {
+                        Label("Supply risk: \(risk.level.rawValue)", systemImage: "gauge.with.dots.needle.50percent")
+                            .font(.caption)
+                            .foregroundStyle(risk.level == .low ? .green : risk.level == .high ? .red : .orange)
+                    }
                     Text(communityText(status))
                         .font(.caption)
                         .foregroundStyle(.secondary)

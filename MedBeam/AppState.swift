@@ -61,6 +61,11 @@ final class AppState {
     /// ZIP → map coordinate, so the home screen doesn't look it up every time
     private var zipCenters: [String: CLLocationCoordinate2D] = [:]
     private let shortageWatchService = ShortageWatchService()
+    private let supplyRiskService = SupplyRiskService()
+
+    /// National supply risk for the searched medication (loads after the map, in the background)
+    private(set) var supplyRisk: SupplyRisk?
+    private(set) var isLoadingSupplyRisk = false
     private let rxNorm = RxNormService()
     private let fda = FDAShortageService()
     private let places = PharmacySearchService()
@@ -105,6 +110,7 @@ final class AppState {
         pharmacies = []
         placeDetails = [:]
         shortage = nil
+        supplyRisk = nil
         if areaOverride == nil { center = nil }
         defer { isLoading = false }
 
@@ -127,15 +133,26 @@ final class AppState {
             let found = try await foundPharmacies
             pharmacies = found.pharmacies
             searchRadiusMiles = found.radiusMiles
+            isLoading = false   // show the map now; the extras below load in the background
             lastSearchKey = key
             seedDemoData()
             if areaOverride == nil { history.record(zip: zip, medication: medication, fdaStatus: status.headline, pharmacyCount: pharmacies.count) }
             async let community: Void = reports.syncCommunity(rxcui: medication.rxcui, center: center, radiusMiles: searchRadiusMiles)
             async let google: Void = loadGoogleDetails(center: center)
-            _ = await (community, google)
+            async let risk: Void = loadSupplyRisk(details: details, shortage: status)
+            _ = await (community, google, risk)
         } catch {
             errorMessage = error.localizedDescription
         }
+    }
+
+    private func loadSupplyRisk(details: MedicationDetails, shortage: ShortageStatus) async {
+        isLoadingSupplyRisk = true
+        defer { isLoadingSupplyRisk = false }
+        let risk = await supplyRiskService.risk(for: details, shortage: shortage)
+        // Ignore if the user already started a different search
+        guard selectedMedication?.rxcui == details.medication.rxcui else { return }
+        supplyRisk = risk
     }
 
     private func loadGoogleDetails(center: CLLocationCoordinate2D) async {
@@ -193,11 +210,12 @@ final class AppState {
         for medication in watchlist.medications {
             let details = (try? await rxNorm.details(for: medication)) ?? .basic(medication)
             let fdaStatus = await fda.status(for: details)
+            let risk = await supplyRiskService.risk(for: details, shortage: fdaStatus)
             var counts: (total: Int, hadIt: Int)?
             if let center {
                 counts = await reports.nearbyCounts(rxcui: medication.rxcui, center: center, radiusMiles: 10)
             }
-            watchlist.setStatus(WatchStatus(fda: fdaStatus, nearbyReports: counts?.total, nearbyHadIt: counts?.hadIt),
+            watchlist.setStatus(WatchStatus(fda: fdaStatus, supplyRisk: risk, nearbyReports: counts?.total, nearbyHadIt: counts?.hadIt),
                                 for: medication.rxcui)
         }
     }

@@ -189,6 +189,7 @@ struct InfoPage: View {
         ("Step 2: Local reports", "People who check a pharmacy can anonymously report whether it had the medication. Recent reports count the most; a report's weight halves every 4 days, and reports older than 30 days are ignored."),
         ("Step 3: Nearby pharmacies", "Reports from other pharmacies within 5 miles count a little, because shortages are often regional."),
         ("Percentages vs. labels", "Until a pharmacy has recent reports, MedBeam shows Likely, Uncertain or Unlikely instead of a percentage, with a confidence level, so it never pretends to be more precise than it is."),
+        ("Supply risk score", "A 0–100 national score combining four public sources: FDA shortage status, how many separately approved products exist (FDA NDC Directory), recalls in the last 6 months (FDA Enforcement Reports), and the 3-month trend in what pharmacies pay (Medicaid NADAC). An official FDA shortage always rates at least Elevated. It describes the medication nationally, not any single pharmacy."),
         ("Official vs. detected", "\"Official FDA shortage\" only appears when the FDA lists one. Local declines detected from reports are labeled separately and are never called official shortages."),
     ])
 
@@ -218,6 +219,8 @@ struct InfoPage: View {
         ("RxNorm", "The National Library of Medicine's standard drug names, used to match your exact medication, strength and form."),
         ("Apple Maps", "Pharmacy names, addresses, phone numbers and locations."),
         ("Google Places (optional)", "Ratings and opening hours, when a Google API key is added in Settings."),
+        ("FDA NDC Directory & Enforcement Reports", "How many approved products exist for a medication, and any recalls in the last 6 months (open.fda.gov)."),
+        ("Medicaid NADAC", "The government's weekly survey of what pharmacies pay for medications (data.medicaid.gov). Rising prices can signal tight supply."),
         ("Community reports", "Anonymous \"had it / didn't\" answers from people using MedBeam."),
     ])
 }

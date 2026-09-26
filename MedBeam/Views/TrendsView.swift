@@ -14,6 +14,8 @@ struct TrendsView: View {
                 }
             }
 
+            SupplyRiskSection(risk: app.supplyRisk, isLoading: app.isLoadingSupplyRisk)
+
             // 1. OFFICIAL — from the FDA
             if let shortage = app.shortage {
                 Section {

@@ -293,6 +293,19 @@ struct ResultsView: View {
                 // Stacked so neither badge gets cut off at larger text sizes
                 VStack(alignment: .leading, spacing: 6) {
                     ShortageChip(level: shortage.level)
+                    if let risk = app.supplyRisk {
+                        Button { showTrends = true } label: {
+                            HStack(spacing: 4) {
+                                SupplyRiskChip(risk: risk)
+                                Image(systemName: "chevron.right").font(.caption2.bold()).foregroundStyle(.tertiary)
+                            }
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityHint("Shows the supply risk breakdown")
+                    } else if app.isLoadingSupplyRisk {
+                        Label("Checking supply risk…", systemImage: "gauge.with.dots.needle.0percent")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
                     if app.demoMode { SimulatedBadge() }
                 }
                 Text(countText)

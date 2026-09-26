@@ -4,6 +4,7 @@ import Observation
 /// Latest status for one saved medication, shown on the home screen.
 struct WatchStatus {
     let fda: ShortageStatus
+    let supplyRisk: SupplyRisk?
     /// Community reports near the user's ZIP in the last 30 days (nil = sharing not set up / offline)
     let nearbyReports: Int?
     let nearbyHadIt: Int?
