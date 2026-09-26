@@ -113,101 +113,23 @@ struct HowItWorksCard: View {
     }
 }
 
-// MARK: - My medications
+// MARK: - Shortage Watch (personalized)
 
-struct MyMedicationsSection: View {
-    @Environment(AppState.self) private var app
-    let onSelect: (Medication) -> Void
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            SectionTitle(title: "My medications", icon: "star.fill")
-
-            if app.watchlist.medications.isEmpty {
-                HStack(spacing: 12) {
-                    Image(systemName: "star")
-                        .font(.title3)
-                        .foregroundStyle(.yellow)
-                    Text("Tap the ☆ on any search to save a medication here and check it quickly.")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .card()
-            } else {
-                VStack(spacing: 0) {
-                    ForEach(Array(app.watchlist.medications.enumerated()), id: \.element.rxcui) { index, medication in
-                        if index > 0 { Divider().padding(.leading, 16) }
-                        Button { onSelect(medication) } label: {
-                            WatchRow(medication: medication, status: app.watchlist.statuses[medication.rxcui], zip: app.zip)
-                        }
-                        .buttonStyle(.plain)
-                        .contextMenu {
-                            Button("Remove from My medications", systemImage: "star.slash", role: .destructive) {
-                                app.watchlist.remove([medication.rxcui])
-                            }
-                        }
-                    }
-                }
-                .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-                Text("Touch and hold a medication to remove it.")
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
-            }
-        }
-    }
-}
-
-private struct WatchRow: View {
-    let medication: Medication
-    let status: WatchStatus?
-    let zip: String
-
-    var body: some View {
-        HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(medication.shortName)
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.primary)
-                    .lineLimit(2)
-                if let status {
-                    Label(status.fda.level.headline, systemImage: status.fda.level == .active ? "exclamationmark.octagon.fill" : "checkmark.seal.fill")
-                        .font(.caption)
-                        .foregroundStyle(status.fda.level == .active ? .red : .green)
-                    if let risk = status.supplyRisk {
-                        Label("Supply risk: \(risk.level.rawValue)", systemImage: "gauge.with.dots.needle.50percent")
-                            .font(.caption)
-                            .foregroundStyle(risk.level == .low ? .green : risk.level == .high ? .red : .orange)
-                    }
-                    Text(communityText(status))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                } else {
-                    Text("Checking…").font(.caption).foregroundStyle(.secondary)
-                }
-            }
-            Spacer()
-            Image(systemName: "chevron.right").font(.caption.bold()).foregroundStyle(.tertiary)
-        }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
-        .contentShape(Rectangle())
-    }
-
-    private func communityText(_ status: WatchStatus) -> String {
-        guard let total = status.nearbyReports else { return "Tap to see pharmacies near \(zip.isEmpty ? "you" : zip)" }
-        if total == 0 { return "No reports near \(zip) in the last 30 days" }
-        return "\(total) report\(total == 1 ? "" : "s") near \(zip) · \(status.nearbyHadIt ?? 0) had it"
-    }
-}
-
-// MARK: - Shortage Watch
-
+/// Shows the user's saved medications ("Mine"), or popular medications ("Popular").
+/// With nothing saved yet, it shows Popular plus a tip on how to save.
 struct ShortageWatchSection: View {
     @Environment(AppState.self) private var app
-    let onSelect: (WatchedDrug) -> Void
+    let onSelectSaved: (Medication) -> Void
+    let onSelectPopular: (WatchedDrug) -> Void
+    let onAdd: () -> Void
+
+    private enum Mode: String, CaseIterable { case mine = "My medications", popular = "Popular" }
+    @State private var mode: Mode = .mine
 
     private let columns = [GridItem(.flexible(), spacing: 12), GridItem(.flexible(), spacing: 12)]
+
+    private var hasSaved: Bool { !app.watchlist.medications.isEmpty }
+    private var showingMine: Bool { hasSaved && mode == .mine }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -222,7 +144,42 @@ struct ShortageWatchSection: View {
                     .foregroundStyle(.green)
             }
 
-            if app.shortageWatchFailed {
+            if hasSaved {
+                Picker("Show", selection: $mode) {
+                    ForEach(Mode.allCases, id: \.self) { Text($0.rawValue) }
+                }
+                .pickerStyle(.segmented)
+            } else {
+                HStack(spacing: 12) {
+                    Image(systemName: "star.fill").font(.title3).foregroundStyle(.yellow)
+                    Text("Make this yours: tap the ☆ on any search to watch your own medications here.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .card(padding: 14)
+            }
+
+            if showingMine {
+                LazyVGrid(columns: columns, spacing: 12) {
+                    ForEach(app.watchlist.medications, id: \.rxcui) { medication in
+                        Button { onSelectSaved(medication) } label: {
+                            SavedMedicationTile(medication: medication, status: app.watchlist.statuses[medication.rxcui], zip: app.zip)
+                        }
+                        .buttonStyle(.plain)
+                        .contextMenu {
+                            Button("Stop watching", systemImage: "star.slash", role: .destructive) {
+                                app.watchlist.remove([medication.rxcui])
+                            }
+                        }
+                    }
+                    Button(action: onAdd) { AddTile() }
+                        .buttonStyle(.plain)
+                }
+                Text("Your saved medications: FDA status, national supply risk and reports near you. Touch and hold to stop watching.")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+            } else if app.shortageWatchFailed {
                 Label("Couldn't reach the FDA. Pull down to try again.", systemImage: "wifi.exclamationmark")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
@@ -231,17 +188,88 @@ struct ShortageWatchSection: View {
             } else {
                 LazyVGrid(columns: columns, spacing: 12) {
                     ForEach(WatchedDrug.featured) { drug in
-                        Button { onSelect(drug) } label: {
+                        Button { onSelectPopular(drug) } label: {
                             ShortageTile(drug: drug, summary: app.shortageWatch[drug.id])
                         }
                         .buttonStyle(.plain)
                     }
                 }
-                Text("Official FDA shortage listings for any strength or form. Tap a medication to search for it.")
+                Text("Commonly hard-to-find medications. Official FDA listings for any strength or form. Tap to search.")
                     .font(.caption2)
                     .foregroundStyle(.tertiary)
             }
         }
+    }
+}
+
+/// Tile for one saved medication.
+private struct SavedMedicationTile: View {
+    let medication: Medication
+    let status: WatchStatus?
+    let zip: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(medication.shortName)
+                .font(.subheadline.weight(.semibold))
+                .lineLimit(2)
+                .fixedSize(horizontal: false, vertical: true)
+            Spacer(minLength: 2)
+            if let status {
+                let inShortage = status.fda.level == .active
+                HStack(spacing: 5) {
+                    Circle().fill(inShortage ? Color.red : Color.green).frame(width: 8, height: 8)
+                    Text(inShortage ? "FDA shortage" : "No shortage")
+                        .font(.caption.bold())
+                        .foregroundStyle(inShortage ? .red : .green)
+                }
+                if let risk = status.supplyRisk {
+                    Text("Supply risk: \(risk.level.rawValue)")
+                        .font(.caption2.bold())
+                        .foregroundStyle(risk.level == .low ? .green : risk.level == .high ? .red : .orange)
+                }
+                Text(reportText(status))
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(2)
+            } else {
+                ProgressView().controlSize(.small)
+            }
+        }
+        .frame(maxWidth: .infinity, minHeight: 120, alignment: .topLeading)
+        .padding(14)
+        .background(Color(.secondarySystemGroupedBackground), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .contentShape(Rectangle())
+        .accessibilityElement(children: .combine)
+    }
+
+    private func reportText(_ status: WatchStatus) -> String {
+        guard let total = status.nearbyReports else { return zip.isEmpty ? "Add a ZIP for local reports" : "Tap to see pharmacies" }
+        if total == 0 { return "No reports near \(zip) yet" }
+        return "\(total) report\(total == 1 ? "" : "s") nearby · \(status.nearbyHadIt ?? 0) had it"
+    }
+}
+
+private struct AddTile: View {
+    var body: some View {
+        VStack(spacing: 8) {
+            Image(systemName: "plus")
+                .font(.title2.weight(.semibold))
+                .foregroundStyle(Color.accentColor)
+                .frame(width: 44, height: 44)
+                .background(Color.accentColor.opacity(0.12), in: Circle())
+            Text("Add medication")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(Color.accentColor)
+        }
+        .frame(maxWidth: .infinity, minHeight: 120)
+        .padding(14)
+        .background {
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .strokeBorder(Color.accentColor.opacity(0.4), style: StrokeStyle(lineWidth: 1.5, dash: [6, 4]))
+        }
+        .contentShape(Rectangle())
+        .accessibilityLabel("Add a medication to watch")
     }
 }
 

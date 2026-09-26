@@ -91,9 +91,11 @@ struct HomeView: View {
                     HowItWorksCard { withAnimation { hideHowItWorks = true } }
                 }
 
-                MyMedicationsSection(onSelect: open)
-
-                ShortageWatchSection { drug in openMedicationSearch(drug.searchQuery) }
+                ShortageWatchSection(
+                    onSelectSaved: open,
+                    onSelectPopular: { drug in openMedicationSearch(drug.searchQuery) },
+                    onAdd: { openMedicationSearch() }
+                )
 
                 if !app.history.entries.isEmpty {
                     recentSearches
