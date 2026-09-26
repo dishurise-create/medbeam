@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MedBeam Privacy Policy</title>
+<style>
+  :root { --text:#1c1c1e; --muted:#5f6368; --bg:#ffffff; --accent:#1e4a8a; --line:#e5e5ea; }
+  @media (prefers-color-scheme: dark) { :root { --text:#f2f2f7; --muted:#a1a1a6; --bg:#111318; --accent:#8ab4f8; --line:#2c2c2e; } }
+  body { margin:0; background:var(--bg); color:var(--text); font:17px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  main { max-width:720px; margin:0 auto; padding:40px 20px 80px; }
+  h1 { font-size:32px; margin:0 0 4px; }
+  h2 { font-size:21px; margin:36px 0 8px; color:var(--accent); }
+  p, li { color:var(--text); }
+  .muted { color:var(--muted); }
+  table { width:100%; border-collapse:collapse; margin:12px 0; font-size:15px; }
+  th, td { text-align:left; padding:10px 8px; border-bottom:1px solid var(--line); vertical-align:top; }
+  th { font-weight:600; }
+  .box { border:1px solid var(--line); border-radius:12px; padding:14px 18px; margin:16px 0; }
+</style>
+</head>
+<body>
+<main>
+<h1>MedBeam Privacy Policy</h1>
+<p class="muted">Last updated: September 25, 2026</p>
+
+<div class="box">
+<strong>The short version:</strong> MedBeam has no accounts, no ads, no tracking and no analytics.
+We never ask for your name, prescription, doctor, diagnosis, insurance or medical history.
+If you choose to share whether a pharmacy had a medication, only the medication, the pharmacy's
+location, your answer and the time are shared, anonymously.
+</div>
+
+<h2>What stays on your iPhone</h2>
+<p>These are stored only on your device and are never sent to us:</p>
+<ul>
+  <li>Your search history, saved medications and the last ZIP code you entered</li>
+  <li>A list of the reports you made (so you can see them in History)</li>
+  <li>Your settings (theme, colors, text size)</li>
+  <li>An optional Google API key, if you add one, stored in your iPhone's secure Keychain</li>
+</ul>
+<p>You can delete all of this anytime in <strong>Settings → Delete all data on this iPhone</strong>, or by deleting the app.</p>
+
+<h2>Anonymous availability reports</h2>
+<p>When you tap "Yes, they had it" or "No, they didn't", MedBeam shares this with other users through our database (hosted by Supabase):</p>
+<table>
+  <tr><th>Shared</th><th>Example</th></tr>
+  <tr><td>Medication ID (a standard government drug code)</td><td>861226</td></tr>
+  <tr><td>The pharmacy's map location (not yours)</td><td>38.93806, -77.55369</td></tr>
+  <tr><td>Your answer</td><td>Had it / didn't have it</td></tr>
+  <tr><td>The time (set by the server)</td><td>Sept 24, 2026, 7:38 PM</td></tr>
+</table>
+<p>Reports contain <strong>no name, account, device ID or location of you</strong>, and cannot be linked back to you.
+"Prefer not to answer" shares nothing. Like most internet services, our database provider may briefly keep
+standard technical logs (such as IP addresses) for security; we do not store IP addresses with reports and
+do not use them to identify anyone.</p>
+<p>Because reports are anonymous, we cannot find or delete a specific person's report. Reports older than 45 days are no longer shown.</p>
+
+<h2>Services MedBeam uses to look things up</h2>
+<p>To show results, the app sends your search (not your identity) to these services:</p>
+<table>
+  <tr><th>Service</th><th>What is sent</th><th>Why</th></tr>
+  <tr><td>Apple Maps</td><td>The ZIP code or map area you search</td><td>Find nearby pharmacies</td></tr>
+  <tr><td>National Library of Medicine (RxNorm)</td><td>The medication name you type</td><td>Identify the exact medication and strength</td></tr>
+  <tr><td>U.S. FDA (openFDA)</td><td>Medication codes</td><td>Official shortage, product and recall data</td></tr>
+  <tr><td>Medicaid (data.medicaid.gov)</td><td>Medication product codes</td><td>Pharmacy price trends</td></tr>
+  <tr><td>Google Places (only if you add your own API key)</td><td>The map area you search</td><td>Pharmacy ratings and hours</td></tr>
+</table>
+<p>These are separate services with their own privacy policies. MedBeam does not use GPS location tracking; it only uses the ZIP code you type or the map area you choose.</p>
+
+<h2>What we never do</h2>
+<ul>
+  <li>Sell or share personal information (we don't collect any)</li>
+  <li>Show ads or use advertising trackers</li>
+  <li>Track you across other apps or websites</li>
+  <li>Give medical advice. MedBeam is an information tool; always talk to your doctor or pharmacist about your medication.</li>
+</ul>
+
+<h2>Children</h2>
+<p>MedBeam is not directed to children under 13 and does not knowingly collect personal information from anyone.</p>
+
+<h2>Changes</h2>
+<p>If this policy changes, the new version will be posted on this page with a new "Last updated" date.</p>
+
+<h2>Contact</h2>
+<p>Questions? Email <strong>[CONTACT EMAIL]</strong>.</p>
+</main>
+</body>
+</html>

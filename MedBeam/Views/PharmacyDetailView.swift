@@ -174,6 +174,14 @@ struct ReportPromptView: View {
                 Text("Your anonymous answer helps others find their medication.")
                     .multilineTextAlignment(.center).foregroundStyle(.secondary)
                 Spacer()
+            } else if !app.canReport(pharmacy) {
+                Spacer()
+                Image(systemName: "clock.badge.checkmark").font(.system(size: 48)).foregroundStyle(Color.accentColor)
+                Text("You already reported this pharmacy").font(.title3.bold()).multilineTextAlignment(.center)
+                Text("To keep estimates fair, you can report the same pharmacy and medication once per hour. Thanks for helping!")
+                    .multilineTextAlignment(.center).foregroundStyle(.secondary)
+                Button("OK") { dismiss() }.buttonStyle(.bordered).controlSize(.large)
+                Spacer()
             } else {
                 Text("Did \(pharmacy.name) have \(app.selectedMedication?.shortName ?? "your medication")?")
                     .font(.title3.bold())

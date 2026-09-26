@@ -49,7 +49,18 @@ final class ReportStore {
         return mine + others
     }
 
+    /// You can report the same pharmacy + medication once per hour.
+    static let reportCooldown: TimeInterval = 3600
+
+    func canReport(medication: Medication, pharmacy: Pharmacy) -> Bool {
+        !all.contains {
+            !$0.isSimulated && $0.rxcui == medication.rxcui && $0.pharmacyID == pharmacy.id
+                && Date.now.timeIntervalSince($0.timestamp) < Self.reportCooldown
+        }
+    }
+
     func add(_ result: AvailabilityReport.Result, medication: Medication, pharmacy: Pharmacy) {
+        guard canReport(medication: medication, pharmacy: pharmacy) else { return }
         let report = AvailabilityReport(
             id: UUID(),
             rxcui: medication.rxcui,

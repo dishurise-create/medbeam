@@ -74,7 +74,8 @@ final class AppState {
 
     init(settings: AppSettings) {
         self.settings = settings
-        demoMode = UserDefaults.standard.object(forKey: "demoMode") as? Bool ?? true
+        // Off for real users; turn on in Settings only for presentations
+        demoMode = UserDefaults.standard.object(forKey: "demoMode") as? Bool ?? false
     }
 
     var isZipValid: Bool { zip.count == 5 && zip.allSatisfy(\.isNumber) }
@@ -266,6 +267,11 @@ final class AppState {
     }
 
     /// `nil` means "Prefer not to answer" — nothing is saved.
+    func canReport(_ pharmacy: Pharmacy) -> Bool {
+        guard let medication = selectedMedication else { return false }
+        return reports.canReport(medication: medication, pharmacy: pharmacy)
+    }
+
     func submitReport(_ result: AvailabilityReport.Result?, for pharmacy: Pharmacy) {
         guard let result, let medication = selectedMedication else { return }
         reports.add(result, medication: medication, pharmacy: pharmacy)

@@ -93,14 +93,14 @@ struct SettingsView: View {
                     Text(app.reports.isCommunityEnabled ? "On" : "Not set up")
                         .foregroundStyle(app.reports.isCommunityEnabled ? .green : .secondary)
                 }
-                Toggle("Demo mode", isOn: $app.demoMode)
+                Toggle("Demo mode (for presentations)", isOn: $app.demoMode)
                 LabeledContent("Your reports", value: "\(app.reports.realReportCount)")
                 LabeledContent("Saved searches", value: "\(app.history.entries.count)")
                 Button("Delete all data on this iPhone", role: .destructive) { confirmDelete = true }
             } header: {
                 Text("Data")
             } footer: {
-                Text("Demo mode adds simulated reports so the app can be shown before it has real users. Simulated data is always labeled.")
+                Text("Leave demo mode off for normal use. When on, it adds clearly labeled simulated reports so the app can be demonstrated. Simulated reports are never shared with other users.")
             }
 
             // MARK: Important info

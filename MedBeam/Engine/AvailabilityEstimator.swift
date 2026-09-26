@@ -48,6 +48,35 @@ enum AvailabilityEstimator {
     /// Apple Maps can return slightly different coordinates for the same store on different
     /// searches, so a report within this distance counts as "this pharmacy".
     static let samePharmacyMeters = 75.0
+    /// Reports for the same spot within this window count as ONE report,
+    /// so a burst of spam (or one person tapping repeatedly) can't swing the estimate.
+    static let burstWindow: TimeInterval = 30 * 60
+
+    /// A group of reports for the same spot within `burstWindow`, treated as one report.
+    struct Burst {
+        let pharmacyIDs: Set<String>
+        let location: CLLocation
+        let timestamp: Date
+        /// Share of reports in the burst that said "had it" (0...1)
+        let yesFraction: Double
+        let isSimulated: Bool
+    }
+
+    static func bursts(_ reports: [AvailabilityReport]) -> [Burst] {
+        // Key: ~50 m grid cell + 30-minute time slot
+        let groups = Dictionary(grouping: reports) { r in
+            "\(Int((r.latitude * 2000).rounded()))|\(Int((r.longitude * 2000).rounded()))|\(Int(r.timestamp.timeIntervalSince1970 / burstWindow))"
+        }
+        return groups.values.map { group in
+            Burst(
+                pharmacyIDs: Set(group.map(\.pharmacyID)),
+                location: group[0].location,
+                timestamp: group.map(\.timestamp).max()!,
+                yesFraction: Double(group.filter { $0.result == .inStock }.count) / Double(group.count),
+                isSimulated: group.contains { $0.isSimulated }
+            )
+        }
+    }
 
     static func estimate(
         for pharmacy: Pharmacy,
@@ -65,25 +94,27 @@ enum AvailabilityEstimator {
         var usesSimulated = false
         let here = CLLocation(latitude: pharmacy.coordinate.latitude, longitude: pharmacy.coordinate.longitude)
 
-        for report in reports {
-            let ageDays = now.timeIntervalSince(report.timestamp) / 86_400
+        for burst in bursts(reports) {
+            let ageDays = now.timeIntervalSince(burst.timestamp) / 86_400
             guard ageDays >= 0, ageDays <= maxAgeDays else { continue }
             let recency = pow(0.5, ageDays / halfLifeDays)
-            let isYes = report.result == .inStock
+            let isYes = burst.yesFraction >= 0.5
 
-            let distance = report.location.distance(from: here)
-            if report.pharmacyID == pharmacy.id || distance <= samePharmacyMeters {
+            let distance = burst.location.distance(from: here)
+            if burst.pharmacyIDs.contains(pharmacy.id) || distance <= samePharmacyMeters {
                 direct.weight += recency
                 if isYes { direct.yes += 1 } else { direct.no += 1 }
-                if isYes { hadIt += recency } else { didnt += recency }
-                lastReport = max(lastReport ?? report.timestamp, report.timestamp)
-                usesSimulated = usesSimulated || report.isSimulated
+                hadIt += recency * burst.yesFraction
+                didnt += recency * (1 - burst.yesFraction)
+                lastReport = max(lastReport ?? burst.timestamp, burst.timestamp)
+                usesSimulated = usesSimulated || burst.isSimulated
             } else if distance / 1609.34 <= areaRadiusMiles {
                 let weight = recency * areaWeight
                 area.weight += weight
                 if isYes { area.yes += 1 } else { area.no += 1 }
-                if isYes { hadIt += weight } else { didnt += weight }
-                usesSimulated = usesSimulated || report.isSimulated
+                hadIt += weight * burst.yesFraction
+                didnt += weight * (1 - burst.yesFraction)
+                usesSimulated = usesSimulated || burst.isSimulated
             }
         }
 
