@@ -31,6 +31,8 @@ struct EstimateFactor: Identifiable {
     let effect: Double
     let detail: String
     let source: String
+    /// A two- or three-word version for the pharmacy card, e.g. "Very common"
+    var short: String = ""
     var id: String { name }
 
     var direction: String {
@@ -59,7 +61,8 @@ enum PriorModel {
     static func prior(shortage: ShortageStatus, signals: DrugSignals?, medication: Medication?, pharmacy: Pharmacy)
         -> (probability: Double, factors: [EstimateFactor]) {
         let base = baseProbability(shortage)
-        var factors = [EstimateFactor(name: "FDA shortage status", effect: 0, detail: baseDetail(shortage, base), source: "FDA Drug Shortages")]
+        var factors = [EstimateFactor(name: "FDA shortage status", effect: 0, detail: baseDetail(shortage, base),
+                                      source: "FDA Drug Shortages", short: baseShort(shortage))]
 
         if let signals {
             if let rx = signals.yearlyPrescriptions { factors.append(volumeFactor(rx)) }
@@ -96,6 +99,16 @@ enum PriorModel {
         }
     }
 
+    private static func baseShort(_ s: ShortageStatus) -> String {
+        switch s.level {
+        case .none: return "No FDA shortage"
+        case .resolved: return "Shortage resolved"
+        case .discontinuing: return "Being discontinued"
+        case .unknown: return "FDA data unavailable"
+        case .active: return "FDA shortage"
+        }
+    }
+
     private static func baseDetail(_ s: ShortageStatus, _ base: Double) -> String {
         let start = "starting point \(Int((base * 100).rounded()))%"
         switch s.level {
@@ -113,26 +126,26 @@ enum PriorModel {
     // MARK: - Medication factors
 
     static func volumeFactor(_ prescriptions: Int) -> EstimateFactor {
-        let effect: Double, text: String
+        let effect: Double, text: String, short: String
         switch prescriptions {
-        case 300_000...: effect = 0.4; text = "Very commonly prescribed, so most pharmacies keep it in stock"
-        case 50_000..<300_000: effect = 0.2; text = "Commonly prescribed"
-        case 5_000..<50_000: effect = -0.2; text = "Less commonly prescribed"
-        case 1_000..<5_000: effect = -1.0; text = "Rarely prescribed, so pharmacies often need to order it (usually 1 to 2 days)"
-        default: effect = -1.8; text = "Very rarely prescribed, so most pharmacies must special-order it"
+        case 300_000...: effect = 0.4; short = "Very common"; text = "Very commonly prescribed, so most pharmacies keep it in stock"
+        case 50_000..<300_000: effect = 0.2; short = "Common"; text = "Commonly prescribed"
+        case 5_000..<50_000: effect = -0.2; short = "Less common"; text = "Less commonly prescribed"
+        case 1_000..<5_000: effect = -1.0; short = "Rarely stocked"; text = "Rarely prescribed, so pharmacies often need to order it (usually 1 to 2 days)"
+        default: effect = -1.8; short = "Special order"; text = "Very rarely prescribed, so most pharmacies must special-order it"
         }
         return .init(name: "How common it is", effect: effect,
-                     detail: "\(text) (\(prescriptions.formatted()) Medicaid prescriptions last year)", source: "Medicaid drug utilization")
+                     detail: "\(text) (\(prescriptions.formatted()) Medicaid prescriptions last year)", source: "Medicaid drug utilization", short: short)
     }
 
     static func scheduleFactor(_ schedule: String) -> [EstimateFactor] {
         switch schedule {
         case "CII":
             return [.init(name: "Controlled substance", effect: -0.4,
-                          detail: "Schedule II: pharmacies face strict ordering limits and can't transfer it between stores", source: "FDA NDC Directory")]
+                          detail: "Schedule II: pharmacies face strict ordering limits and can't transfer it between stores", source: "FDA NDC Directory", short: "Controlled")]
         case "CIII", "CIV", "CV":
             return [.init(name: "Controlled substance", effect: -0.15,
-                          detail: "Schedule \(schedule.dropFirst()): some ordering limits apply", source: "FDA NDC Directory")]
+                          detail: "Schedule \(schedule.dropFirst()): some ordering limits apply", source: "FDA NDC Directory", short: "Controlled")]
         default:
             return []
         }
@@ -147,14 +160,15 @@ enum PriorModel {
         default: effect = 0.15
         }
         return .init(name: "Number of makers", effect: effect,
-                     detail: count <= 1 ? "Only 1 approved product" : "\(count) separately approved products", source: "FDA NDC Directory")
+                     detail: count <= 1 ? "Only 1 approved product" : "\(count) separately approved products", source: "FDA NDC Directory",
+                     short: count <= 1 ? "Only 1 maker" : "\(count) makers")
     }
 
     static func recallFactor(_ recalls: [SupplyRiskService.Recall]) -> [EstimateFactor] {
         guard !recalls.isEmpty else { return [] }
         let serious = recalls.count >= 2 || recalls.contains { $0.classification == "Class I" }
         return [.init(name: "Recent recalls", effect: serious ? -0.4 : -0.2,
-                      detail: "\(recalls.count) recall\(recalls.count == 1 ? "" : "s") in the last 6 months", source: "FDA Enforcement Reports")]
+                      detail: "\(recalls.count) recall\(recalls.count == 1 ? "" : "s") in the last 6 months", source: "FDA Enforcement Reports", short: "Recent recall")]
     }
 
     static func priceFactor(_ change: Double) -> EstimateFactor {
@@ -169,13 +183,14 @@ enum PriorModel {
         let percent = Int((change * 100).rounded())
         let text = percent == 0 ? "flat" : (percent > 0 ? "up \(percent)%" : "down \(-percent)%")
         return .init(name: "Wholesale price trend", effect: effect,
-                     detail: "Price pharmacies pay is \(text) over ~3 months", source: "Medicaid NADAC")
+                     detail: "Price pharmacies pay is \(text) over ~3 months", source: "Medicaid NADAC",
+                     short: percent == 0 ? "Price flat" : (percent > 0 ? "Price rising" : "Price falling"))
     }
 
     static func formFactor(_ medication: Medication) -> [EstimateFactor] {
         switch medication.formRank {
-        case 3: return [.init(name: "Form", effect: -0.2, detail: "Injectables and patches are stocked less widely than tablets", source: "RxNorm")]
-        case 2: return [.init(name: "Form", effect: -0.1, detail: "Liquids are stocked a little less widely than tablets", source: "RxNorm")]
+        case 3: return [.init(name: "Form", effect: -0.2, detail: "Injectables and patches are stocked less widely than tablets", source: "RxNorm", short: "Injectable or patch")]
+        case 2: return [.init(name: "Form", effect: -0.1, detail: "Liquids are stocked a little less widely than tablets", source: "RxNorm", short: "Liquid")]
         default: return []
         }
     }
@@ -186,14 +201,14 @@ enum PriorModel {
         let source = "Pharmacy name"
         switch kind {
         case .specialty:
-            return [.init(name: "Pharmacy type", effect: -2.0, detail: "\(kind.rawValue): usually doesn't fill regular prescriptions (capped at \(Int(specialtyCap * 100))%)", source: source)]
+            return [.init(name: "Pharmacy type", effect: -2.0, detail: "\(kind.rawValue): usually doesn't fill regular prescriptions (capped at \(Int(specialtyCap * 100))%)", source: source, short: "Specialty pharmacy")]
         case .institutional:
-            return [.init(name: "Pharmacy type", effect: -0.5, detail: "\(kind.rawValue): may only serve its own patients or members", source: source)]
+            return [.init(name: "Pharmacy type", effect: -0.5, detail: "\(kind.rawValue): may only serve its own patients or members", source: source, short: "Members only?")]
         case .chain, .grocery:
-            return inShortage ? [] : [.init(name: "Pharmacy type", effect: 0.1, detail: "\(kind.rawValue) with frequent deliveries", source: source)]
+            return inShortage ? [] : [.init(name: "Pharmacy type", effect: 0.1, detail: "\(kind.rawValue) with frequent deliveries", source: source, short: "Large store")]
         case .independent:
             return inShortage ? [.init(name: "Pharmacy type", effect: 0.15,
-                                       detail: "\(kind.rawValue): uses different suppliers, which sometimes helps during shortages", source: source)] : []
+                                       detail: "\(kind.rawValue): uses different suppliers, which sometimes helps during shortages", source: source, short: "Independent")] : []
         }
     }
 

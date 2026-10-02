@@ -95,7 +95,7 @@ private struct StepRow: View {
                 if done {
                     Image(systemName: "checkmark").font(.headline.bold()).foregroundStyle(.white)
                 } else {
-                    Text("\(number)").font(.system(.headline, design: .rounded, weight: .bold)).foregroundStyle(.white)
+                    Text("\(number)").font(.system(.headline, design: .rounded, weight: .bold)).foregroundStyle(Brand.onAccent)
                 }
             }
             VStack(alignment: .leading, spacing: 2) {

@@ -2,6 +2,7 @@ import SwiftUI
 
 struct HomeView: View {
     @Environment(AppState.self) private var app
+    @Environment(AppSettings.self) private var settings
     /// Set to open the medication search sheet (optionally pre-filled)
     @State private var medicationSearch: MedicationSearchRequest?
     @FocusState private var zipFocused: Bool
@@ -76,14 +77,10 @@ struct HomeView: View {
                     zipFocused = false
                     app.showResults()
                 } label: {
-                    Text("Find pharmacies")
-                        .font(.headline)
+                    Label("Find pharmacies", systemImage: "sparkle.magnifyingglass")
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 6)
                 }
-                .buttonStyle(.borderedProminent)
-                .buttonBorderShape(.capsule)
-                .controlSize(.large)
+                .buttonStyle(BrandButtonStyle())
                 .disabled(!app.canSearch)
 
                 QuickStartGuide(hasInfo: app.canSearch)
@@ -111,6 +108,7 @@ struct HomeView: View {
         }
         .sheet(item: $medicationSearch) { request in
             MedicationSearchSheet(initialQuery: request.text)
+                .tint(settings.accent.color)
         }
         #if DEBUG
         .task { await runAutomationIfRequested() }

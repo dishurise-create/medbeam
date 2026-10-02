@@ -3,26 +3,43 @@ import MapKit
 
 struct ResultsView: View {
     @Environment(AppState.self) private var app
+    @Environment(AppSettings.self) private var settings
     @Environment(\.scenePhase) private var scenePhase
     @State private var camera: MapCameraPosition = .automatic
     /// Where the map is currently looking (updated when the user stops moving it)
     @State private var visibleRegion: MKCoordinateRegion?
     @State private var currentCamera: MapCamera?
-    /// Center of the map right after results were shown — "Search this area" appears
+    /// Center of the map right after results were shown. "Search this area" appears
     /// only when the user moves away from here.
     @State private var resultsCenter: CLLocationCoordinate2D?
     @State private var sheet: ActiveSheet?
-    /// Set when the user taps "Call" — when they come back to the app, we ask how it went.
+    /// Set when the user taps "Call". When they come back to the app, we ask how it went.
     @State private var pendingCall: (pharmacy: Pharmacy, time: Date)?
     @State private var showTrends = false
+    /// How far the list panel is pulled up over the map
+    @State private var detent: PanelDetent = .medium
+    @State private var dragOffset: CGFloat = 0
 
     /// Most pins shown at once. Zoomed out, only the best-chance pharmacies are shown.
     static let maxPins = 20
-    /// Zoom limits, in meters of camera distance (≈ 60 miles across when fully zoomed out)
+    /// Zoom limits, in meters of camera distance. Fully zoomed out shows roughly 60 miles
+    /// across on the full-screen map, enough for the widest (25-mile) rural search.
     static let minZoom = 300.0
-    static let maxZoom = 100_000.0
+    static let maxZoom = 400_000.0
 
     typealias RankedPharmacy = (pharmacy: Pharmacy, estimate: AvailabilityEstimate)
+
+    enum PanelDetent: CaseIterable {
+        case collapsed, medium, large
+
+        func height(in total: CGFloat) -> CGFloat {
+            switch self {
+            case .collapsed: return 116
+            case .medium: return max(280, total * 0.46)
+            case .large: return max(320, total - 8)
+            }
+        }
+    }
 
     enum ActiveSheet: Identifiable {
         case detail(Pharmacy)
@@ -40,71 +57,30 @@ struct ResultsView: View {
         let ranked = app.rankedPharmacies
         let pins = visiblePins(ranked)
 
-        VStack(spacing: 0) {
-            map(pins.shown)
-                .frame(height: 360)
-                .opacity(app.errorMessage == nil ? 1 : 0.35)
-                .allowsHitTesting(app.errorMessage == nil)
-                .overlay(alignment: .top) { mapBanner(shown: pins.shown.count, total: pins.inView) }
-                .overlay(alignment: .bottomTrailing) { zoomControls }
-                .overlay(alignment: .bottom) {
-                    if app.errorMessage == nil { searchAreaButton(noPinsInView: pins.inView == 0) }
+        GeometryReader { geo in
+            let total = geo.size.height
+            let height = min(PanelDetent.large.height(in: total),
+                             max(PanelDetent.collapsed.height(in: total), detent.height(in: total) - dragOffset))
+            // The map keeps its pins, logo and controls clear of the panel (up to the middle position)
+            let mapInset = min(height, PanelDetent.medium.height(in: total))
+
+            ZStack(alignment: .bottom) {
+                map(pins.shown)
+                    .safeAreaPadding(.bottom, mapInset)
+                    .safeAreaPadding(.trailing, 56)   // room for the zoom buttons
+                    .opacity(app.errorMessage == nil ? 1 : 0.35)
+                    .allowsHitTesting(app.errorMessage == nil)
+
+                if app.errorMessage == nil, detent != .large {
+                    searchAreaButton(noPinsInView: pins.inView == 0)
+                        .padding(.bottom, height + 12)
                 }
 
-            List {
-                Section {
-                    summaryHeader
-                }
-
-                if !ranked.isEmpty, let warning = app.localTrend.earlyWarning {
-                    Section {
-                        NavigationLink { TrendsView() } label: {
-                            Label {
-                                VStack(alignment: .leading, spacing: 2) {
-                                    Text("Early warning").font(.subheadline.bold())
-                                    Text(warning).font(.footnote)
-                                    Text("Detected from community reports, not an official FDA shortage.")
-                                        .font(.caption2).foregroundStyle(.secondary)
-                                }
-                            } icon: {
-                                Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
-                            }
-                        }
-                    }
-                }
-
-                if !ranked.isEmpty {
-                Section {
-                    ForEach(ranked, id: \.pharmacy.id) { item in
-                        Button { sheet = .detail(item.pharmacy) } label: {
-                            PharmacyRow(pharmacy: item.pharmacy, estimate: item.estimate, place: app.placeDetails[item.pharmacy.id])
-                        }
-                        .buttonStyle(.plain)
-                    }
-                } header: {
-                    Text("Pharmacies, best chance first")
-                } footer: {
-                    Text(Disclaimer.estimate)
-                }
-                }
+                panel(ranked, total: total)
+                    .frame(height: height)
             }
-            .listStyle(.insetGrouped)
-            .refreshable { await app.refreshCommunityReports() }
-            .appBackground()
-            .overlay {
-                if app.isLoading {
-                    ProgressView("Checking FDA data and nearby pharmacies…")
-                } else if let error = app.errorMessage {
-                    ContentUnavailableView {
-                        Label("Couldn't load pharmacies", systemImage: "exclamationmark.triangle")
-                    } description: {
-                        Text(error)
-                    } actions: {
-                        Button("Try again") { Task { await app.findPharmacies(force: true) } }
-                            .buttonStyle(.borderedProminent)
-                    }
-                }
-            }
+            .overlay(alignment: .top) { mapBanner(shown: pins.shown.count, total: pins.inView) }
+            .overlay(alignment: .topTrailing) { if detent != .large { zoomControls } }
         }
         .navigationTitle(app.selectedMedication?.shortName ?? "Results")
         .navigationBarTitleDisplayMode(.inline)
@@ -115,8 +91,10 @@ struct ResultsView: View {
                     Button { app.toggleWatch(medication) } label: {
                         Label(saved ? "Remove from My medications" : "Save to My medications",
                               systemImage: saved ? "star.fill" : "star")
+                            .symbolEffect(.bounce, value: saved)
                     }
                     .tint(saved ? .yellow : nil)
+                    .sensoryFeedback(.impact, trigger: saved)
                 }
             }
             ToolbarItem(placement: .topBarTrailing) {
@@ -138,6 +116,7 @@ struct ResultsView: View {
             fitAllResults()
         }
         .onAppear { if visibleRegion == nil { fitAllResults() } }
+        .sensoryFeedback(.selection, trigger: sheet?.id)
         .sheet(item: $sheet) { sheet in
             switch sheet {
             case .detail(let pharmacy):
@@ -147,9 +126,11 @@ struct ResultsView: View {
                     self.sheet = .report(pharmacy)
                 }
                 .presentationDetents([.medium, .large])
+                .tint(settings.accent.color)   // sheets don't inherit the app's tint
             case .report(let pharmacy):
                 ReportPromptView(pharmacy: pharmacy)
                     .presentationDetents([.height(380)])
+                    .tint(settings.accent.color)
             }
         }
         .onChange(of: scenePhase) { _, phase in
@@ -160,19 +141,165 @@ struct ResultsView: View {
         }
     }
 
+    // MARK: - Slide-up panel
+
+    private func panel(_ ranked: [RankedPharmacy], total: CGFloat) -> some View {
+        VStack(spacing: 0) {
+            panelHeader(count: ranked.count)
+                .contentShape(Rectangle())
+                .gesture(panelDrag(total: total))
+                .onTapGesture {
+                    // Tapping the header steps the panel up, or back down from full height
+                    withAnimation(.spring(duration: 0.35)) {
+                        detent = detent == .collapsed ? .medium : (detent == .medium ? .large : .medium)
+                    }
+                }
+                .accessibilityAddTraits(.isButton)
+                .accessibilityHint("Drag or tap to resize the pharmacy list")
+
+            Divider()
+
+            if app.isLoading {
+                ProgressView("Checking FDA data and nearby pharmacies…")
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if let error = app.errorMessage {
+                ContentUnavailableView {
+                    Label("Couldn't load pharmacies", systemImage: "exclamationmark.triangle")
+                } description: {
+                    Text(error)
+                } actions: {
+                    Button("Try again") { Task { await app.findPharmacies(force: true) } }
+                        .buttonStyle(BrandButtonStyle())
+                }
+            } else {
+                pharmacyList(ranked)
+            }
+        }
+        .background {
+            UnevenRoundedRectangle(topLeadingRadius: 26, topTrailingRadius: 26, style: .continuous)
+                .fill(.regularMaterial)
+                .shadow(color: .black.opacity(0.18), radius: 12, y: -2)
+                .ignoresSafeArea(edges: .bottom)
+        }
+    }
+
+    private func panelHeader(count: Int) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Capsule()
+                .fill(Color.secondary.opacity(0.45))
+                .frame(width: 40, height: 5)
+                .frame(maxWidth: .infinity)
+                .padding(.top, 8)
+
+            HStack(alignment: .firstTextBaseline) {
+                Text(app.isLoading || app.errorMessage != nil ? "Pharmacies" : "\(count) \(count == 1 ? "pharmacy" : "pharmacies")")
+                    .font(.headline)
+                    .contentTransition(.numericText())
+                if !app.isLoading, app.errorMessage == nil {
+                    Text(rangeText).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                }
+                Spacer()
+                if count > 1 {
+                    Label("Best first", systemImage: "arrow.down").font(.caption).foregroundStyle(.secondary)
+                }
+            }
+
+            if let shortage = app.shortage, app.errorMessage == nil {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 8) {
+                        ShortageChip(level: shortage.level)
+                        if let risk = app.supplyRisk {
+                            Button { showTrends = true } label: { SupplyRiskChip(risk: risk) }
+                                .buttonStyle(.plain)
+                                .accessibilityHint("Shows the supply risk breakdown")
+                        }
+                        if app.demoMode { SimulatedBadge() }
+                    }
+                }
+                if app.isRefiningEstimates {
+                    Label("Refining percentages with more public data…", systemImage: "arrow.triangle.2.circlepath")
+                        .font(.caption).foregroundStyle(.secondary)
+                } else {
+                    CommunityStatusLine(status: app.reports.communityStatus)
+                }
+            }
+        }
+        .padding(.horizontal, 18)
+        .padding(.bottom, 10)
+    }
+
+    private func pharmacyList(_ ranked: [RankedPharmacy]) -> some View {
+        List {
+            if let warning = app.localTrend.earlyWarning {
+                Button { showTrends = true } label: {
+                    Label {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Early warning").font(.subheadline.bold())
+                            Text(warning).font(.footnote)
+                            Text("Detected from community reports, not an official FDA shortage.")
+                                .font(.caption2).foregroundStyle(.secondary)
+                        }
+                    } icon: {
+                        Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
+                    }
+                }
+                .buttonStyle(.plain)
+                .listRowBackground(Color.clear)
+            }
+            if app.searchRadiusMiles > PharmacySearchService.searchRadii[0] {
+                Label("No pharmacies nearby, so the search was widened.", systemImage: "arrow.up.left.and.arrow.down.right")
+                    .font(.caption).foregroundStyle(.secondary)
+                    .listRowBackground(Color.clear)
+            }
+
+            ForEach(Array(ranked.enumerated()), id: \.element.pharmacy.id) { index, item in
+                Button { sheet = .detail(item.pharmacy) } label: {
+                    PharmacyRow(pharmacy: item.pharmacy, estimate: item.estimate, place: app.placeDetails[item.pharmacy.id])
+                }
+                .buttonStyle(.plain)
+                .modifier(AppearAnimation(index: index))
+                .listRowBackground(Color.clear)
+            }
+
+            Text(Disclaimer.estimate)
+                .font(.caption2).foregroundStyle(.secondary)
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+        }
+        .listStyle(.plain)
+        .scrollContentBackground(.hidden)
+        .refreshable { await app.refreshCommunityReports() }
+    }
+
+    private func panelDrag(total: CGFloat) -> some Gesture {
+        DragGesture(minimumDistance: 6, coordinateSpace: .global)
+            .onChanged { dragOffset = $0.translation.height }
+            .onEnded { value in
+                // Settle on whichever position is closest to where the drag was heading
+                let target = detent.height(in: total) - value.predictedEndTranslation.height
+                let nearest = PanelDetent.allCases.min {
+                    abs($0.height(in: total) - target) < abs($1.height(in: total) - target)
+                } ?? .medium
+                withAnimation(.spring(duration: 0.35)) {
+                    detent = nearest
+                    dragOffset = 0
+                }
+            }
+    }
+
     // MARK: - Map
 
     private func map(_ shown: [RankedPharmacy]) -> some View {
         // Small dots when zoomed out, or when many pins would overlap
         let distance = currentCamera?.distance ?? 0
-        let compact = (shown.count > 8 && distance > 6_000) || distance > 60_000
+        let compact = (shown.count > 8 && distance > 14_000) || distance > 140_000
 
         return Map(position: $camera, bounds: MapCameraBounds(minimumDistance: Self.minZoom, maximumDistance: Self.maxZoom)) {
             if let center = app.center {
                 Annotation(app.isSearchingArea ? "Search area" : "ZIP \(app.zip)", coordinate: center) {
                     Image(systemName: app.isSearchingArea ? "scope" : "house.circle.fill")
                         .font(.title2)
-                        .foregroundStyle(.white, .blue)
+                        .foregroundStyle(.white, Brand.navy)
                 }
             }
             ForEach(shown, id: \.pharmacy.id) { item in
@@ -180,6 +307,7 @@ struct ResultsView: View {
                     Button { sheet = .detail(item.pharmacy) } label: {
                         MapPin(estimate: item.estimate, compact: compact)
                     }
+                    .modifier(PinDrop())
                     .accessibilityLabel("\(item.pharmacy.name), \(item.estimate.headline), \(item.estimate.confidence.rawValue)")
                 }
             }
@@ -205,8 +333,10 @@ struct ResultsView: View {
 
     @ViewBuilder
     private func mapBanner(shown: Int, total: Int) -> some View {
-        if total > shown {
-            MapBanner(text: "Showing top \(shown) of \(total) · zoom in to see more")
+        if detent == .large {
+            EmptyView()
+        } else if total > shown {
+            MapBanner(text: "Top \(shown) of \(total) · zoom in for more")
         } else if !app.isLoading && !app.pharmacies.isEmpty && total == 0 {
             MapBanner(text: "No pharmacies in this view")
         }
@@ -234,11 +364,14 @@ struct ResultsView: View {
             } label: {
                 Label("Search this area", systemImage: "arrow.clockwise")
                     .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .background(Brand.buttonGradient, in: Capsule())
             }
-            .buttonStyle(.borderedProminent)
-            .buttonBorderShape(.capsule)
+            .buttonStyle(.plain)
             .shadow(radius: 3)
-            .padding(.bottom, 12)
+            .transition(.scale.combined(with: .opacity))
         }
     }
 
@@ -276,54 +409,42 @@ struct ResultsView: View {
         }
     }
 
-    /// Uses the real distance of the farthest result — in big cities Apple Maps returns
+    /// Uses the real distance of the farthest result. In big cities Apple Maps returns
     /// the closest stores only, so "within 8 miles" would overstate what was searched.
-    private var countText: String {
+    private var rangeText: String {
         let place = app.isSearchingArea ? "the map area" : app.zip
         let farthest = app.pharmacies.map(\.distanceMiles).max() ?? 0
         let miles = farthest < 1 ? String(format: "%.1f", max(farthest, 0.1)) : "\(Int(farthest.rounded(.up)))"
-        let count = app.pharmacies.count
-        return "\(count) \(count == 1 ? "pharmacy" : "pharmacies") within \(miles) mi of \(place)"
+        return "within \(miles) mi of \(place)"
     }
+}
 
-    @ViewBuilder
-    private var summaryHeader: some View {
-        if let shortage = app.shortage, app.errorMessage == nil {
-            VStack(alignment: .leading, spacing: 8) {
-                // Stacked so neither badge gets cut off at larger text sizes
-                VStack(alignment: .leading, spacing: 6) {
-                    ShortageChip(level: shortage.level)
-                    if let risk = app.supplyRisk {
-                        Button { showTrends = true } label: {
-                            HStack(spacing: 4) {
-                                SupplyRiskChip(risk: risk)
-                                Image(systemName: "chevron.right").font(.caption2.bold()).foregroundStyle(.tertiary)
-                            }
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityHint("Shows the supply risk breakdown")
-                    } else if app.isLoadingSupplyRisk {
-                        Label("Checking supply risk…", systemImage: "gauge.with.dots.needle.0percent")
-                            .font(.caption).foregroundStyle(.secondary)
-                    }
-                    if app.demoMode { SimulatedBadge() }
-                }
-                Text(countText)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                CommunityStatusLine(status: app.reports.communityStatus)
-                if app.isRefiningEstimates {
-                    Label("Refining percentages with more public data…", systemImage: "arrow.triangle.2.circlepath")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                if app.searchRadiusMiles > PharmacySearchService.searchRadii[0] {
-                    Label("No pharmacies nearby, so the search was widened.", systemImage: "arrow.up.left.and.arrow.down.right")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
+/// List rows slide and fade in, one after another.
+private struct AppearAnimation: ViewModifier {
+    let index: Int
+    @State private var shown = false
+
+    func body(content: Content) -> some View {
+        content
+            .opacity(shown ? 1 : 0)
+            .offset(y: shown ? 0 : 14)
+            .onAppear {
+                withAnimation(.easeOut(duration: 0.35).delay(Double(min(index, 8)) * 0.04)) { shown = true }
             }
-        }
+    }
+}
+
+/// Map pins pop in.
+private struct PinDrop: ViewModifier {
+    @State private var shown = false
+
+    func body(content: Content) -> some View {
+        content
+            .scaleEffect(shown ? 1 : 0.2, anchor: .bottom)
+            .opacity(shown ? 1 : 0)
+            .onAppear {
+                withAnimation(.spring(duration: 0.45, bounce: 0.4).delay(Double.random(in: 0...0.25))) { shown = true }
+            }
     }
 }
 
@@ -387,8 +508,9 @@ struct PharmacyRow: View {
 
     var body: some View {
         HStack(spacing: 12) {
+            PharmacyAvatar(name: pharmacy.name)
             VStack(alignment: .leading, spacing: 4) {
-                Text(pharmacy.name).font(.headline).foregroundStyle(.primary)
+                Text(pharmacy.name).font(.headline).foregroundStyle(.primary).lineLimit(1)
                 Text(pharmacy.address).font(.caption).foregroundStyle(.secondary).lineLimit(1)
                 HStack(spacing: 6) {
                     Text(String(format: "%.1f mi", pharmacy.distanceMiles))

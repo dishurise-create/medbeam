@@ -33,10 +33,11 @@ final class AppSettings {
     }
 
     enum Accent: String, CaseIterable, Identifiable {
-        case blue = "Blue", teal = "Teal", green = "Green", indigo = "Indigo", pink = "Pink", orange = "Orange"
+        case brand = "MedBeam", blue = "Blue", teal = "Teal", green = "Green", indigo = "Indigo", pink = "Pink", orange = "Orange"
         var id: String { rawValue }
         var color: Color {
             switch self {
+            case .brand: return Brand.accent   // navy in light mode, gold in dark mode
             case .blue: return .blue
             case .teal: return .teal
             case .green: return .green
@@ -78,7 +79,7 @@ final class AppSettings {
         let d = UserDefaults.standard
         theme = Theme(rawValue: d.string(forKey: "theme") ?? "") ?? .system
         background = Background(rawValue: d.string(forKey: "background") ?? "") ?? .standard
-        accent = Accent(rawValue: d.string(forKey: "accent") ?? "") ?? .blue
+        accent = Accent(rawValue: d.string(forKey: "accent") ?? "") ?? .brand
         textSize = TextSize(rawValue: d.string(forKey: "textSize") ?? "") ?? .standard
         googleAPIKey = KeychainStore.get("googlePlacesKey") ?? ""
     }

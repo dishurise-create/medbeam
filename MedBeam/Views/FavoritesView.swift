@@ -3,6 +3,7 @@ import SwiftUI
 /// Favorites tab: your watched medications (Shortage Watch) and recent searches.
 struct FavoritesView: View {
     @Environment(AppState.self) private var app
+    @Environment(AppSettings.self) private var settings
     @State private var medicationSearch: MedicationSearchRequest?
 
     var body: some View {
@@ -29,6 +30,7 @@ struct FavoritesView: View {
         .sheet(item: $medicationSearch) { request in
             // Picking a medication here opens its pharmacy results right away
             MedicationSearchSheet(initialQuery: request.text) { medication in open(medication) }
+                .tint(settings.accent.color)
         }
     }
 

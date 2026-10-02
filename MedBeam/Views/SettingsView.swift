@@ -141,6 +141,7 @@ struct SettingsView: View {
                             withAnimation { showPresentationTools = true }
                         }
                     }
+                Button("Show welcome screens again") { UserDefaults.standard.set(false, forKey: "hasSeenWelcome") }
                 Text("Built for the 2026 Congressional App Challenge.")
                     .font(.footnote).foregroundStyle(.secondary)
             } header: {

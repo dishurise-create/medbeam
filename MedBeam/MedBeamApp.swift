@@ -25,6 +25,7 @@ struct MedBeamApp: App {
 
 struct RootView: View {
     @Environment(AppState.self) private var app
+    @AppStorage("hasSeenWelcome") private var hasSeenWelcome = false
 
     var body: some View {
         @Bindable var app = app
@@ -52,6 +53,9 @@ struct RootView: View {
             NavigationStack { SettingsView() }
                 .tabItem { Label("Settings", systemImage: "gearshape") }
                 .tag(AppState.Tab.settings)
+        }
+        .fullScreenCover(isPresented: Binding(get: { !hasSeenWelcome }, set: { hasSeenWelcome = !$0 })) {
+            WelcomeView { hasSeenWelcome = true }
         }
     }
 }
