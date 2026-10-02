@@ -209,10 +209,10 @@ struct InfoPage: View {
 
     static let estimates = InfoPage(title: "How estimates work", sections: [
         ("No live inventory", "No public system shares pharmacies' live prescription stock. MedBeam never claims to know exactly what's on the shelf."),
-        ("Step 1: National supply", "MedBeam checks the official FDA Drug Shortages database for your exact medication, strength and form, and counts how many manufacturers report it as available. This works even with zero users."),
+        ("Step 1: A percentage from public data", "MedBeam starts with the official FDA Drug Shortages status for your exact medication, strength and form. It then adjusts for how commonly the medication is prescribed (Medicaid data), whether it is a controlled substance, how many companies make it, recent recalls, the wholesale price trend, its form, and the type of pharmacy. This works even with zero users. Each pharmacy's card lists every factor."),
         ("Step 2: Local reports", "People who check a pharmacy can anonymously report whether it had the medication. Recent reports count the most; a report's weight halves every 4 days, and reports older than 30 days are ignored."),
         ("Step 3: Nearby pharmacies", "Reports from other pharmacies within 5 miles count a little, because shortages are often regional."),
-        ("Percentages vs. labels", "Until a pharmacy has recent reports, MedBeam shows Likely, Uncertain or Unlikely instead of a percentage, with a confidence level, so it never pretends to be more precise than it is."),
+        ("How to read the percentage", "The percentage is an informed estimate, not a measurement. The confidence level shows how much local evidence is behind it: Low means public data only, so similar pharmacies nearby show similar numbers. It becomes Moderate or High as local reports come in. Always call to confirm."),
         ("Supply risk score", "A 0–100 national score combining four public sources: FDA shortage status, how many separately approved products exist (FDA NDC Directory), recalls in the last 6 months (FDA Enforcement Reports), and the 3-month trend in what pharmacies pay (Medicaid NADAC). An official FDA shortage always rates at least Elevated. It describes the medication nationally, not any single pharmacy."),
         ("Official vs. detected", "\"Official FDA shortage\" only appears when the FDA lists one. Local declines detected from reports are labeled separately and are never called official shortages."),
     ])
@@ -242,7 +242,8 @@ struct InfoPage: View {
         ("FDA Drug Shortages", "Official U.S. Food and Drug Administration shortage data through openFDA (open.fda.gov). Updated by the FDA as manufacturers report."),
         ("RxNorm", "The National Library of Medicine's standard drug names, used to match your exact medication, strength and form."),
         ("Apple Maps", "Pharmacy names, addresses, phone numbers and locations."),
-        ("FDA NDC Directory & Enforcement Reports", "How many approved products exist for a medication, and any recalls in the last 6 months (open.fda.gov)."),
+        ("FDA NDC Directory & Enforcement Reports", "How many approved products exist for a medication, whether it is a controlled substance, and any recalls in the last 6 months (open.fda.gov)."),
+        ("Medicaid drug utilization", "How many prescriptions were filled nationally last year, a measure of how commonly pharmacies stock a medication (data.medicaid.gov)."),
         ("Medicaid NADAC", "The government's weekly survey of what pharmacies pay for medications (data.medicaid.gov). Rising prices can signal tight supply."),
         ("Community reports", "Anonymous \"had it / didn't\" answers from people using MedBeam."),
     ])

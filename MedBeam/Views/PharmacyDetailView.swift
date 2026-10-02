@@ -66,9 +66,25 @@ struct PharmacyDetailView: View {
                     }
                 }
 
-                Section("Why this estimate?") {
+                Section {
+                    ForEach(estimate.factors) { factor in
+                        FactorLine(factor: factor)
+                    }
+                    if app.isRefiningEstimates {
+                        HStack(spacing: 8) {
+                            ProgressView().controlSize(.small)
+                            Text("Loading more public data…").font(.caption).foregroundStyle(.secondary)
+                        }
+                    }
+                } header: {
+                    Text("Why this estimate?")
+                } footer: {
+                    Text("From public data alone: \(Int((estimate.publicDataProbability * 100).rounded()))%. Local reports then adjust it.")
+                }
+
+                Section("Local reports") {
                     ForEach(estimate.reasons, id: \.self) { reason in
-                        Label(reason, systemImage: "info.circle")
+                        Label(reason, systemImage: "person.3")
                             .font(.subheadline)
                     }
                 }
@@ -124,6 +140,35 @@ struct PharmacyDetailView: View {
                     .font(.footnote).foregroundStyle(.secondary)
             }
         }
+    }
+}
+
+/// One public-data factor: an arrow for its direction, plus the detail.
+private struct FactorLine: View {
+    let factor: EstimateFactor
+
+    private var icon: (name: String, color: Color) {
+        switch factor.effect {
+        case 0.05...: return ("arrow.up.circle.fill", .green)
+        case ..<(-0.05): return ("arrow.down.circle.fill", factor.effect < -0.3 ? .red : .orange)
+        default: return ("equal.circle.fill", .gray)
+        }
+    }
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: icon.name).foregroundStyle(icon.color).font(.body)
+            VStack(alignment: .leading, spacing: 2) {
+                HStack {
+                    Text(factor.name).font(.subheadline.weight(.semibold))
+                    Spacer()
+                    Text(factor.source).font(.caption2).foregroundStyle(.tertiary)
+                }
+                Text(factor.detail).font(.caption).foregroundStyle(.secondary)
+            }
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(factor.name): \(factor.direction). \(factor.detail)")
     }
 }
 

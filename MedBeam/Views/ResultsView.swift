@@ -312,6 +312,11 @@ struct ResultsView: View {
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                 CommunityStatusLine(status: app.reports.communityStatus)
+                if app.isRefiningEstimates {
+                    Label("Refining percentages with more public data…", systemImage: "arrow.triangle.2.circlepath")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
                 if app.searchRadiusMiles > PharmacySearchService.searchRadii[0] {
                     Label("No pharmacies nearby, so the search was widened.", systemImage: "arrow.up.left.and.arrow.down.right")
                         .font(.caption)

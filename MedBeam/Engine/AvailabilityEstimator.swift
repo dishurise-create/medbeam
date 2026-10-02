@@ -18,9 +18,13 @@ struct AvailabilityEstimate {
     let probability: Double
     let tier: Tier
     let confidence: Confidence
-    /// Percentages are only shown once there are real local reports for this pharmacy.
-    /// Before that, showing "78%" would be fake precision, so we show the tier instead.
+    /// Always true now: the percentage is built from public data even without local reports.
+    /// The confidence level tells the user how much local evidence is behind it.
     let showsPercentage: Bool
+    /// Public-data factors behind the starting percentage (before crowd reports)
+    var factors: [EstimateFactor] = []
+    /// The percentage from public data alone, before crowd reports adjusted it
+    var publicDataProbability: Double = 0
     let lastReport: Date?
     let reasons: [String]
     let usesSimulatedData: Bool
@@ -31,8 +35,9 @@ struct AvailabilityEstimate {
 
 /// How the estimate works (a Bayesian "prior + evidence" model):
 ///
-/// 1. START with the national supply signal from the FDA shortage database.
-///    This works with zero users. It counts as `priorWeight` pretend reports.
+/// 1. START with a percentage built from public data (see PriorModel): FDA shortage status,
+///    how common the drug is, controlled-substance status, makers, recalls, price trend,
+///    form and pharmacy type. This works with zero users. It counts as `priorWeight` pretend reports.
 /// 2. ADD reports for this exact pharmacy. Newer reports count more:
 ///    a report's weight halves every `halfLifeDays` days.
 /// 3. ADD reports from other pharmacies within `areaRadiusMiles`, at a lower
@@ -81,10 +86,13 @@ enum AvailabilityEstimator {
     static func estimate(
         for pharmacy: Pharmacy,
         shortage: ShortageStatus,
+        signals: DrugSignals? = nil,
+        medication: Medication? = nil,
         reports: [AvailabilityReport],
         now: Date = .now
     ) -> AvailabilityEstimate {
-        let prior = shortage.nationalSupplyScore
+        let model = PriorModel.prior(shortage: shortage, signals: signals, medication: medication, pharmacy: pharmacy)
+        let prior = model.probability
         var hadIt = prior * priorWeight
         var didnt = (1 - prior) * priorWeight
 
@@ -129,7 +137,7 @@ enum AvailabilityEstimator {
             confidence = .low
         }
 
-        var reasons = [nationalReason(shortage)]
+        var reasons: [String] = []
         if direct.yes + direct.no > 0 {
             reasons.append("\(direct.yes + direct.no) report\(direct.yes + direct.no == 1 ? "" : "s") for this pharmacy in the last 30 days: \(direct.yes) had it, \(direct.no) didn't. Recent reports count more.")
         } else {
@@ -139,34 +147,19 @@ enum AvailabilityEstimator {
             reasons.append("\(area.yes + area.no) report\(area.yes + area.no == 1 ? "" : "s") from other pharmacies within \(Int(areaRadiusMiles)) miles (\(area.yes) had it) — these count less.")
         }
         if direct.yes + direct.no == 0 && area.yes + area.no == 0 {
-            reasons.append("With no local reports, this is based only on national supply, so nearby pharmacies show the same level.")
+            reasons.append("With no local reports yet, this percentage comes from public data only, so similar pharmacies nearby show similar numbers. Call to confirm.")
         }
 
         return AvailabilityEstimate(
             probability: probability,
             tier: tier,
             confidence: confidence,
-            showsPercentage: direct.weight >= 0.9,
+            showsPercentage: true,
+            factors: model.factors,
+            publicDataProbability: prior,
             lastReport: lastReport,
             reasons: reasons,
             usesSimulatedData: usesSimulated
         )
-    }
-
-    private static func nationalReason(_ shortage: ShortageStatus) -> String {
-        switch shortage.level {
-        case .none:
-            return "FDA does not list this medication as being in shortage."
-        case .active:
-            let known = shortage.manufacturers.filter { $0.category != .unknown }
-            let good = known.filter { $0.category == .available }.count
-            return "FDA lists an official shortage. \(good) of \(known.count) manufacturers report the product as available."
-        case .resolved:
-            return "FDA lists a past shortage for this medication as resolved."
-        case .discontinuing:
-            return "FDA lists this product as being discontinued by at least one manufacturer."
-        case .unknown:
-            return "Couldn't reach the FDA shortage database, so a neutral starting estimate is used."
-        }
     }
 }

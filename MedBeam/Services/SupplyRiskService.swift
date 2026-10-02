@@ -1,5 +1,19 @@
 import Foundation
 
+/// Raw facts about a medication, from public data. Used by both the supply risk score
+/// and the per-pharmacy availability estimate. `nil` = that source had no data.
+struct DrugSignals {
+    /// Separately approved products (≈ number of makers)
+    var makers: Int?
+    var recalls: [SupplyRiskService.Recall]?
+    /// Change in the price pharmacies pay over ~3 months (0.12 = +12%)
+    var priceChange: Double?
+    /// DEA schedule, e.g. "CII" for Adderall. Empty string = not a controlled substance.
+    var deaSchedule: String?
+    /// Prescriptions filled nationally through Medicaid last year: how commonly it's dispensed
+    var yearlyPrescriptions: Int?
+}
+
 /// A national "how fragile is the supply of this medication?" score, built only from public data.
 /// It describes the medication as a whole — it can NOT say whether one pharmacy has it in stock.
 struct SupplyRisk {
@@ -19,6 +33,7 @@ struct SupplyRisk {
 
     let factors: [Factor]
     let checkedAt: Date
+    var signals = DrugSignals()
 
     /// True when the FDA officially lists this medication as in shortage.
     let officialShortage: Bool
@@ -63,11 +78,22 @@ struct SupplyRiskService {
 
         var factors: [SupplyRisk.Factor] = []
         var missing: [String] = []
+        var signals = DrugSignals()
         if let f = Self.shortageFactor(shortage) { factors.append(f) } else { missing.append("FDA Drug Shortages") }
-        if let count = await makers { factors.append(Self.makersFactor(count)) } else { missing.append("FDA NDC Directory") }
-        if let recallList = await recalls { factors.append(Self.recallFactor(recallList)) } else { missing.append("FDA Enforcement Reports") }
-        if let change = await price { factors.append(Self.priceFactor(change)) } else { missing.append("Medicaid NADAC price survey") }
-        return SupplyRisk(factors: factors, checkedAt: .now,
+        if let product = await makers {
+            factors.append(Self.makersFactor(product.count))
+            signals.makers = product.count
+            signals.deaSchedule = product.schedule
+        } else { missing.append("FDA NDC Directory") }
+        if let recallList = await recalls {
+            factors.append(Self.recallFactor(recallList))
+            signals.recalls = recallList
+        } else { missing.append("FDA Enforcement Reports") }
+        if let change = await price {
+            factors.append(Self.priceFactor(change))
+            signals.priceChange = change
+        } else { missing.append("Medicaid NADAC price survey") }
+        return SupplyRisk(factors: factors, checkedAt: .now, signals: signals,
                           officialShortage: shortage.level == .active, unavailableSources: missing)
     }
 
@@ -155,12 +181,15 @@ struct SupplyRiskService {
     }
 
     /// Distinct FDA application numbers = distinct approved products (repackagers share the original's number).
-    private func approvedProductCount(rxcuis: [String]) async -> Int? {
+    private func approvedProductCount(rxcuis: [String]) async -> (count: Int, schedule: String)? {
         guard let url = URL(string: "https://api.fda.gov/drug/ndc.json?search=\(rxcuiQuery(rxcuis))&limit=1000"),
               let json = await fetchJSON(url),
               let results = json["results"] as? [[String: Any]], !results.isEmpty else { return nil }
         let applications = Set(results.compactMap { $0["application_number"] as? String })
-        return applications.isEmpty ? nil : applications.count
+        guard !applications.isEmpty else { return nil }
+        // DEA schedule ("CII", "CIII", ...) — missing means not a controlled substance
+        let schedule = results.compactMap { $0["dea_schedule"] as? String }.first ?? ""
+        return (applications.count, schedule)
     }
 
     private func recentRecalls(rxcuis: [String]) async -> [Recall]? {
@@ -185,11 +214,10 @@ struct SupplyRiskService {
         }
     }
 
-    /// Price change over about 3 months, from the weekly NADAC survey.
-    private func priceChange(rxcuis: [String]) async -> Double? {
-        // 1. RxNorm → NDC product codes
-        var ndcs: [String] = await withTaskGroup(of: [String].self) { group in
-            for rxcui in rxcuis.prefix(4) {
+    /// RxNorm → NDC product codes (the IDs Medicaid data is organized by)
+    private func ndcCodes(rxcuis: [String], limit: Int) async -> [String] {
+        let ndcs: [String] = await withTaskGroup(of: [String].self) { group in
+            for rxcui in rxcuis.prefix(12) {
                 group.addTask {
                     guard let url = URL(string: "https://rxnav.nlm.nih.gov/REST/rxcui/\(rxcui)/ndcs.json"),
                           let json = await fetchJSON(url),
@@ -202,8 +230,59 @@ struct SupplyRiskService {
             for await list in group { all += list }
             return all
         }
-        ndcs = Array(Set(ndcs)).sorted().prefix(60).map { $0 }
-        guard !ndcs.isEmpty, let datasets = await NADACDatasets.shared.latestTwo() else { return nil }
+        return Array(Set(ndcs)).sorted().prefix(limit).map { $0 }
+    }
+
+    /// How many prescriptions for this medication Medicaid paid for nationally last year.
+    /// A measure of how commonly pharmacies dispense (and therefore stock) it. Slow (~15 s),
+    /// so results are cached by the caller.
+    func yearlyPrescriptions(rxcuis: [String]) async -> Int? {
+        // Count brand AND generic versions (e.g. insulin glargine = Lantus, Basaglar, ...)
+        let all = await withBrandAndGenericEquivalents(rxcuis)
+        let ndcs = await ndcCodes(rxcuis: all, limit: 150)
+        guard !ndcs.isEmpty, let dataset = await MedicaidDatasets.shared.utilizationDataset() else { return nil }
+        var components = URLComponents(string: "https://data.medicaid.gov/api/1/datastore/query/\(dataset)/0")!
+        var items = [URLQueryItem(name: "conditions[0][property]", value: "ndc"),
+                     URLQueryItem(name: "conditions[0][operator]", value: "in"),
+                     URLQueryItem(name: "conditions[1][property]", value: "state"),
+                     URLQueryItem(name: "conditions[1][value]", value: "XX"),   // XX = national totals
+                     URLQueryItem(name: "limit", value: "3000")]
+        items += ndcs.map { URLQueryItem(name: "conditions[0][value][]", value: $0) }
+        components.queryItems = items
+        guard let url = components.url else { return nil }
+        var request = URLRequest(url: url)
+        request.timeoutInterval = 45
+        guard let (data, response) = try? await URLSession.shared.data(for: request),
+              (response as? HTTPURLResponse)?.statusCode == 200,
+              let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+              let rows = json["results"] as? [[String: Any]] else { return nil }
+        let total = rows.reduce(0.0) { $0 + (Double($1["number_of_prescriptions"] as? String ?? "") ?? 0) }
+        // Zero almost always means the product codes didn't match, not that nobody takes it
+        return total > 0 ? Int(total) : nil
+    }
+
+    /// Adds the brand-name (SBD) and generic (SCD) versions of the same drug + strength.
+    private func withBrandAndGenericEquivalents(_ rxcuis: [String]) async -> [String] {
+        let related: [String] = await withTaskGroup(of: [String].self) { group in
+            for rxcui in rxcuis.prefix(4) {
+                group.addTask {
+                    guard let url = URL(string: "https://rxnav.nlm.nih.gov/REST/rxcui/\(rxcui)/related.json?tty=SBD+SCD"),
+                          let json = await fetchJSON(url),
+                          let groups = (json["relatedGroup"] as? [String: Any])?["conceptGroup"] as? [[String: Any]] else { return [] }
+                    return groups.flatMap { ($0["conceptProperties"] as? [[String: Any]] ?? []).compactMap { $0["rxcui"] as? String } }
+                }
+            }
+            var all: [String] = []
+            for await list in group { all += list }
+            return all
+        }
+        return Array(Set(rxcuis + related))
+    }
+
+    /// Price change over about 3 months, from the weekly NADAC survey.
+    private func priceChange(rxcuis: [String]) async -> Double? {
+        let ndcs = await ndcCodes(rxcuis: rxcuis, limit: 60)
+        guard !ndcs.isEmpty, let datasets = await MedicaidDatasets.shared.latestTwo() else { return nil }
 
         // 2. Weekly prices for those NDCs. This year first; last year only if needed (early in the year).
         var byDate: [String: [Double]] = [:]
@@ -242,10 +321,31 @@ struct SupplyRiskService {
     }
 }
 
-/// Finds the current NADAC datasets (Medicaid publishes one per year).
-actor NADACDatasets {
-    static let shared = NADACDatasets()
+/// Finds the current Medicaid datasets (a new one is published each year).
+actor MedicaidDatasets {
+    static let shared = MedicaidDatasets()
     private var cached: [String]?
+    private var utilization: String?
+
+    /// "State Drug Utilization Data" for the most recent complete year.
+    func utilizationDataset() async -> String? {
+        if let utilization { return utilization }
+        guard let url = URL(string: "https://data.medicaid.gov/api/1/search?fulltext=State%20Drug%20Utilization%20Data&page-size=40"),
+              let (data, _) = try? await URLSession.shared.data(from: url),
+              let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+              let results = json["results"] as? [String: [String: Any]] else { return nil }
+        let prefix = "State Drug Utilization Data "
+        let thisYear = Calendar.current.component(.year, from: .now)
+        let yearly = results.values.compactMap { item -> (Int, String)? in
+            guard let title = item["title"] as? String, title.hasPrefix(prefix),
+                  let year = Int(title.dropFirst(prefix.count)),
+                  let id = item["identifier"] as? String else { return nil }
+            return (year, id)
+        }.sorted { $0.0 > $1.0 }
+        // Prefer last year (complete); this year's data is still filling in
+        utilization = (yearly.first { $0.0 < thisYear } ?? yearly.first)?.1
+        return utilization
+    }
 
     func latestTwo() async -> [String]? {
         if let cached { return cached }

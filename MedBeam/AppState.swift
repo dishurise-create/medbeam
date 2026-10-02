@@ -66,6 +66,11 @@ final class AppState {
     /// National supply risk for the searched medication (loads after the map, in the background)
     private(set) var supplyRisk: SupplyRisk?
     private(set) var isLoadingSupplyRisk = false
+    /// Public-data facts about the searched medication, used in every pharmacy's percentage
+    private(set) var drugSignals: DrugSignals?
+    /// True while slower public data (recalls, prices, prescription volume) is still loading
+    var isRefiningEstimates: Bool { isLoadingSupplyRisk || isLoadingVolume }
+    private var isLoadingVolume = false
     private let rxNorm = RxNormService()
     private let fda = FDAShortageService()
     private let places = PharmacySearchService()
@@ -112,6 +117,7 @@ final class AppState {
         placeDetails = [:]
         shortage = nil
         supplyRisk = nil
+        drugSignals = nil
         if areaOverride == nil { center = nil }
         defer { isLoading = false }
 
@@ -141,7 +147,8 @@ final class AppState {
             async let community: Void = reports.syncCommunity(rxcui: medication.rxcui, center: center, radiusMiles: searchRadiusMiles)
             async let google: Void = loadGoogleDetails(center: center)
             async let risk: Void = loadSupplyRisk(details: details, shortage: status)
-            _ = await (community, google, risk)
+            async let volume: Void = loadPrescriptionVolume(details: details)
+            _ = await (community, google, risk, volume)
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -154,6 +161,28 @@ final class AppState {
         // Ignore if the user already started a different search
         guard selectedMedication?.rxcui == details.medication.rxcui else { return }
         supplyRisk = risk
+        var signals = risk.signals
+        signals.yearlyPrescriptions = drugSignals?.yearlyPrescriptions ?? VolumeCache.get(details.medication.rxcui)
+        drugSignals = signals
+    }
+
+    /// How commonly the medication is prescribed (slow source, so remembered for 30 days).
+    private func loadPrescriptionVolume(details: MedicationDetails) async {
+        let rxcui = details.medication.rxcui
+        if let cached = VolumeCache.get(rxcui) {
+            var signals = drugSignals ?? DrugSignals()
+            signals.yearlyPrescriptions = cached
+            drugSignals = signals
+            return
+        }
+        isLoadingVolume = true
+        defer { isLoadingVolume = false }
+        guard let count = await supplyRiskService.yearlyPrescriptions(rxcuis: details.relatedRxcuis) else { return }
+        VolumeCache.set(count, for: rxcui)
+        guard selectedMedication?.rxcui == rxcui else { return }
+        var signals = drugSignals ?? DrugSignals()
+        signals.yearlyPrescriptions = count
+        drugSignals = signals
     }
 
     private func loadGoogleDetails(center: CLLocationCoordinate2D) async {
@@ -240,6 +269,8 @@ final class AppState {
         AvailabilityEstimator.estimate(
             for: pharmacy,
             shortage: shortage ?? .unknown(),
+            signals: drugSignals,
+            medication: selectedMedication,
             reports: currentReports
         )
     }
