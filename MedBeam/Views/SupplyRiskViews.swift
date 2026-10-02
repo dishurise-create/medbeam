@@ -103,7 +103,7 @@ struct SupplyRiskSection: View {
                 Text("Public data · national").font(.caption2.bold()).textCase(nil)
             }
         } footer: {
-            Text("How fragile the supply of this medication is across the U.S. It does not show whether a specific pharmacy has it — that comes from local reports.")
+            Text("How fragile the supply of this medication is across the U.S. It does not show whether a specific pharmacy has it. That comes from local reports.")
         }
     }
 }

@@ -161,7 +161,7 @@ enum AvailabilityEstimator {
             reasons.append("No reports for this pharmacy yet.")
         }
         if area.yes + area.no > 0 {
-            reasons.append("\(area.yes + area.no) report\(area.yes + area.no == 1 ? "" : "s") from other pharmacies within \(Int(areaRadiusMiles)) miles (\(area.yes) had it) — these count less.")
+            reasons.append("\(area.yes + area.no) report\(area.yes + area.no == 1 ? "" : "s") from other pharmacies within \(Int(areaRadiusMiles)) miles (\(area.yes) had it). These count less.")
         }
         if direct.yes + direct.no == 0 && area.yes + area.no == 0 {
             reasons.append("With no local reports yet, this percentage comes from public data only, so similar pharmacies nearby show similar numbers. Call to confirm.")

@@ -99,14 +99,14 @@ enum PriorModel {
     private static func baseDetail(_ s: ShortageStatus, _ base: Double) -> String {
         let start = "starting point \(Int((base * 100).rounded()))%"
         switch s.level {
-        case .none: return "Not in an FDA shortage — \(start)"
-        case .resolved: return "A past FDA shortage is resolved — \(start)"
-        case .discontinuing: return "Being discontinued by a maker — \(start)"
-        case .unknown: return "FDA data unavailable — \(start)"
+        case .none: return "Not in an FDA shortage, \(start)"
+        case .resolved: return "A past FDA shortage is resolved, \(start)"
+        case .discontinuing: return "Being discontinued by a maker, \(start)"
+        case .unknown: return "FDA data unavailable, \(start)"
         case .active:
             let known = s.manufacturers.filter { $0.category != .unknown }
             let ok = known.filter { $0.category == .available }.count
-            return "Official FDA shortage, \(ok) of \(known.count) makers report it available — \(start)"
+            return "Official FDA shortage, \(ok) of \(known.count) makers report it available, \(start)"
         }
     }
 
@@ -118,8 +118,8 @@ enum PriorModel {
         case 300_000...: effect = 0.4; text = "Very commonly prescribed, so most pharmacies keep it in stock"
         case 50_000..<300_000: effect = 0.2; text = "Commonly prescribed"
         case 5_000..<50_000: effect = -0.2; text = "Less commonly prescribed"
-        case 1_000..<5_000: effect = -1.0; text = "Rarely prescribed — pharmacies often need to order it (usually 1–2 days)"
-        default: effect = -1.8; text = "Very rarely prescribed — most pharmacies must special-order it"
+        case 1_000..<5_000: effect = -1.0; text = "Rarely prescribed, so pharmacies often need to order it (usually 1 to 2 days)"
+        default: effect = -1.8; text = "Very rarely prescribed, so most pharmacies must special-order it"
         }
         return .init(name: "How common it is", effect: effect,
                      detail: "\(text) (\(prescriptions.formatted()) Medicaid prescriptions last year)", source: "Medicaid drug utilization")

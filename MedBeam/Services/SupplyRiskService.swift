@@ -132,8 +132,8 @@ struct SupplyRiskService {
         default: risk = 0.1
         }
         let detail = count <= 1
-            ? "Only 1 approved product (often a brand with no generic) — one supply problem affects everyone"
-            : "\(count) separately approved products — more makers means a safer supply"
+            ? "Only 1 approved product (often a brand with no generic), so one supply problem affects everyone"
+            : "\(count) separately approved products. More makers means a safer supply"
         return .init(name: "Number of makers", risk: risk, weight: weights.makers, detail: detail, source: "FDA NDC Directory")
     }
 

@@ -63,7 +63,7 @@ struct ResultsView: View {
                                 VStack(alignment: .leading, spacing: 2) {
                                     Text("Early warning").font(.subheadline.bold())
                                     Text(warning).font(.footnote)
-                                    Text("Detected from community reports — not an official FDA shortage.")
+                                    Text("Detected from community reports, not an official FDA shortage.")
                                         .font(.caption2).foregroundStyle(.secondary)
                                 }
                             } icon: {
@@ -335,14 +335,14 @@ struct CommunityStatusLine: View {
         Group {
             switch status {
             case .notConfigured:
-                Label("Community sharing not set up — using this iPhone's reports only", systemImage: "iphone")
+                Label("Community sharing not set up. Using this iPhone's reports only", systemImage: "iphone")
             case .syncing:
                 Label("Loading community reports…", systemImage: "arrow.triangle.2.circlepath")
             case .connected(let count):
-                Label(count == 0 ? "No community reports nearby yet — be the first!" : "\(count) community report\(count == 1 ? "" : "s") nearby (last 30 days)",
+                Label(count == 0 ? "No community reports nearby yet. Be the first!" : "\(count) community report\(count == 1 ? "" : "s") nearby (last 30 days)",
                       systemImage: "person.3.fill")
             case .failed:
-                Label("Couldn't reach community reports — pull down to retry", systemImage: "wifi.exclamationmark")
+                Label("Couldn't reach community reports. Pull down to retry", systemImage: "wifi.exclamationmark")
                     .foregroundStyle(.orange)
             }
         }

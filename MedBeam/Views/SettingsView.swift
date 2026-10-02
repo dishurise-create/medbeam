@@ -39,7 +39,7 @@ struct SettingsView: View {
                     ForEach(AppSettings.TextSize.allCases) { Text($0.rawValue).tag($0) }
                 }
                 .tint(settings.accent.color)
-                Text("Preview: Adderall XR 20 mg — Likely at CVS Pharmacy")
+                Text("Preview: Adderall XR 20 mg, 89% at CVS Pharmacy")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
@@ -213,7 +213,7 @@ struct InfoPage: View {
         ("Step 2: Local reports", "People who check a pharmacy can anonymously report whether it had the medication. Recent reports count the most; a report's weight halves every 4 days, and reports older than 30 days are ignored."),
         ("Step 3: Nearby pharmacies", "Reports from other pharmacies within 5 miles count a little, because shortages are often regional."),
         ("How to read the percentage", "The percentage is an informed estimate, not a measurement. The label next to it shows how much local evidence is behind it. \"Public data only\" means nobody has reported for that pharmacy yet, so similar pharmacies nearby show similar numbers. It changes to \"Some local reports\" and then \"Many local reports\" as people share what they found. Always call to confirm."),
-        ("Supply risk score", "A 0–100 national score combining four public sources: FDA shortage status, how many separately approved products exist (FDA NDC Directory), recalls in the last 6 months (FDA Enforcement Reports), and the 3-month trend in what pharmacies pay (Medicaid NADAC). An official FDA shortage always rates at least Elevated. It describes the medication nationally, not any single pharmacy."),
+        ("Supply risk score", "A 0 to 100 national score combining four public sources: FDA shortage status, how many separately approved products exist (FDA NDC Directory), recalls in the last 6 months (FDA Enforcement Reports), and the 3-month trend in what pharmacies pay (Medicaid NADAC). An official FDA shortage always rates at least Elevated. It describes the medication nationally, not any single pharmacy."),
         ("Official vs. detected", "\"Official FDA shortage\" only appears when the FDA lists one. Local declines detected from reports are labeled separately and are never called official shortages."),
     ])
 

@@ -91,7 +91,7 @@ struct PharmacyDetailView: View {
 
                 Section {
                     Button(action: onReport) {
-                        Label("I checked — report what I found", systemImage: "checkmark.bubble")
+                        Label("I checked. Report what I found", systemImage: "checkmark.bubble")
                     }
                 } footer: {
                     Text(Disclaimer.estimate)
