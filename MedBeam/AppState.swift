@@ -280,7 +280,9 @@ final class AppState {
         pharmacies
             .map { ($0, estimate(for: $0)) }
             .sorted { a, b in
-                if abs(a.1.probability - b.1.probability) > 0.02 { return a.1.probability > b.1.probability }
+                // Sort by the percentage the user actually sees; ties go to the closer pharmacy
+                let pa = (a.1.probability * 100).rounded(), pb = (b.1.probability * 100).rounded()
+                if pa != pb { return pa > pb }
                 return a.0.distanceMiles < b.0.distanceMiles
             }
     }

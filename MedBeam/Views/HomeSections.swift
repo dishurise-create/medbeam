@@ -53,63 +53,61 @@ struct BrandHeader: View {
     }
 }
 
-// MARK: - How it works
+// MARK: - Quick start guide
 
-struct HowItWorksCard: View {
-    let onDismiss: () -> Void
-
-    private let steps: [(icon: String, title: String)] = [
-        ("magnifyingglass", "Search your medication"),
-        ("map.fill", "See likely pharmacies"),
-        ("checkmark.bubble.fill", "Report what you found"),
-    ]
+/// Two simple steps shown under the Find button. Step 1 gets a checkmark once
+/// the ZIP code and medication are filled in.
+struct QuickStartGuide: View {
+    let hasInfo: Bool
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack {
-                Text("How it works").font(.headline)
-                Spacer()
-                Button(action: onDismiss) {
-                    Image(systemName: "xmark")
-                        .font(.caption.bold())
-                        .foregroundStyle(.secondary)
-                        .padding(8)
-                        .background(Color(.tertiarySystemFill), in: Circle())
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Hide how it works")
-            }
-            HStack(alignment: .top, spacing: 8) {
-                ForEach(Array(steps.enumerated()), id: \.offset) { index, step in
-                    VStack(spacing: 8) {
-                        ZStack(alignment: .topTrailing) {
-                            Image(systemName: step.icon)
-                                .font(.title3)
-                                .foregroundStyle(Color.accentColor)
-                                .frame(width: 52, height: 52)
-                                .background(Color.accentColor.opacity(0.12), in: Circle())
-                            Text("\(index + 1)")
-                                .font(.caption2.bold())
-                                .foregroundStyle(.white)
-                                .frame(width: 20, height: 20)
-                                .background(Color.accentColor, in: Circle())
-                                .offset(x: 4, y: -4)
-                        }
-                        Text(step.title)
-                            .font(.caption)
-                            .multilineTextAlignment(.center)
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .accessibilityElement(children: .combine)
-                    .accessibilityLabel("Step \(index + 1): \(step.title)")
-                }
-            }
-            Text("Your reports are anonymous and help your neighbors find their medication too.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 0) {
+            StepRow(number: 1, icon: "square.and.pencil", title: "Enter your info",
+                    detail: "Type your ZIP code and choose your medication.", done: hasInfo)
+            // Connector line between the two step circles
+            Rectangle()
+                .fill(Color.accentColor.opacity(0.25))
+                .frame(width: 2, height: 18)
+                .padding(.leading, 21)
+            StepRow(number: 2, icon: "map.fill", title: "Tap Find pharmacies",
+                    detail: "See each pharmacy's chance of having it, on a map.", done: false)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
         .card()
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("How to use MedBeam. Step 1: type your ZIP code and choose your medication. Step 2: tap Find pharmacies.")
+    }
+}
+
+private struct StepRow: View {
+    let number: Int
+    let icon: String
+    let title: String
+    let detail: String
+    let done: Bool
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 14) {
+            ZStack {
+                Circle()
+                    .fill(done ? AnyShapeStyle(Color.green.gradient) : AnyShapeStyle(Color.accentColor.gradient))
+                    .frame(width: 44, height: 44)
+                if done {
+                    Image(systemName: "checkmark").font(.headline.bold()).foregroundStyle(.white)
+                } else {
+                    Text("\(number)").font(.system(.headline, design: .rounded, weight: .bold)).foregroundStyle(.white)
+                }
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                Label(title, systemImage: icon)
+                    .font(.subheadline.weight(.semibold))
+                    .labelStyle(.titleAndIcon)
+                Text(detail)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
     }
 }
 

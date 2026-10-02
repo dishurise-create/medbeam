@@ -9,9 +9,10 @@ struct AvailabilityEstimate {
     }
 
     enum Confidence: String {
-        case low = "Low confidence"
-        case moderate = "Moderate confidence"
-        case high = "High confidence"
+        // The label says how much LOCAL evidence is behind the percentage
+        case low = "Public data only"
+        case moderate = "Some local reports"
+        case high = "Many local reports"
     }
 
     /// 0...1 chance the pharmacy has the medication

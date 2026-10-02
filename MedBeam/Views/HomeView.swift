@@ -4,7 +4,6 @@ struct HomeView: View {
     @Environment(AppState.self) private var app
     /// Set to open the medication search sheet (optionally pre-filled)
     @State private var medicationSearch: MedicationSearchRequest?
-    @AppStorage("hideHowItWorks") private var hideHowItWorks = false
     @FocusState private var zipFocused: Bool
 
     var body: some View {
@@ -87,9 +86,7 @@ struct HomeView: View {
                 .controlSize(.large)
                 .disabled(!app.canSearch)
 
-                if !hideHowItWorks {
-                    HowItWorksCard { withAnimation { hideHowItWorks = true } }
-                }
+                QuickStartGuide(hasInfo: app.canSearch)
 
                 Label("Anonymous. No account or prescription info needed.", systemImage: "lock.fill")
                     .font(.footnote)

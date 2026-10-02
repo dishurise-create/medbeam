@@ -129,6 +129,19 @@ var ok = true
 for n in 0..<60 { let x = est(p, half, worst, inject, (0..<n).map { report(p, $0 % 3 == 0, daysAgo: Double($0) * 0.3) }).probability; if !(0...1).contains(x) || x.isNaN { ok = false } }
 check("never NaN or outside 0–100%", ok)
 
+// Ranking: a higher shown percentage must never be listed below a lower one
+section("Ranking")
+func ranked(_ list: [(Double, Double)]) -> [(Double, Double)] {   // (probability, distance) — same rule as AppState.rankedPharmacies
+    list.sorted { a, b in
+        let pa = (a.0 * 100).rounded(), pb = (b.0 * 100).rounded()
+        return pa != pb ? pa > pb : a.1 < b.1
+    }
+}
+let order = ranked([(0.853, 3.4), (0.861, 3.6), (0.861, 1.0), (0.40, 0.2)])
+check("86% is listed above 85% even if farther away", order.map { Int(($0.0 * 100).rounded()) } == [86, 86, 85, 40])
+check("equal percentages → closer pharmacy first", order[0].1 == 1.0 && order[1].1 == 3.6)
+check("confidence labels describe local evidence", AvailabilityEstimate.Confidence.low.rawValue == "Public data only")
+
 // ---------------------------------------------------------------- trends
 section("Local trends")
 func weeks(_ yes: (Int) -> Int) -> [AvailabilityReport] {
