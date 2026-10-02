@@ -69,19 +69,35 @@ enum AvailabilityEstimator {
     }
 
     static func bursts(_ reports: [AvailabilityReport]) -> [Burst] {
-        // Key: ~50 m grid cell + 30-minute time slot
-        let groups = Dictionary(grouping: reports) { r in
-            "\(Int((r.latitude * 2000).rounded()))|\(Int((r.longitude * 2000).rounded()))|\(Int(r.timestamp.timeIntervalSince1970 / burstWindow))"
+        // Group by ~50 m location cell first
+        let byPlace = Dictionary(grouping: reports) { r in
+            "\(Int((r.latitude * 2000).rounded()))|\(Int((r.longitude * 2000).rounded()))"
         }
-        return groups.values.map { group in
-            Burst(
-                pharmacyIDs: Set(group.map(\.pharmacyID)),
-                location: group[0].location,
-                timestamp: group.map(\.timestamp).max()!,
-                yesFraction: Double(group.filter { $0.result == .inStock }.count) / Double(group.count),
-                isSimulated: group.contains { $0.isSimulated }
-            )
+        var result: [Burst] = []
+        for group in byPlace.values {
+            // Then chain reports in time: a report within `burstWindow` of the previous one
+            // joins the same burst. (Fixed clock slots would split a burst at a slot boundary.)
+            var current: [AvailabilityReport] = []
+            for report in group.sorted(by: { $0.timestamp < $1.timestamp }) {
+                if let last = current.last, report.timestamp.timeIntervalSince(last.timestamp) > burstWindow {
+                    result.append(makeBurst(current))
+                    current = []
+                }
+                current.append(report)
+            }
+            if !current.isEmpty { result.append(makeBurst(current)) }
         }
+        return result
+    }
+
+    private static func makeBurst(_ group: [AvailabilityReport]) -> Burst {
+        Burst(
+            pharmacyIDs: Set(group.map(\.pharmacyID)),
+            location: group[0].location,
+            timestamp: group.map(\.timestamp).max()!,
+            yesFraction: Double(group.filter { $0.result == .inStock }.count) / Double(group.count),
+            isSimulated: group.contains { $0.isSimulated }
+        )
     }
 
     static func estimate(

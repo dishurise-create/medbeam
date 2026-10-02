@@ -123,6 +123,15 @@ check("report matched by location when the map ID changes", est(moved, none, nil
 let one = est(p, none, nil, nil, [report(p, false, daysAgo: 0.1)]).probability
 let spam = est(p, none, nil, nil, (0..<10).map { report(p, false, daysAgo: 0.1 + Double($0) * 0.0003) }).probability
 check("burst of 10 spam reports counts as 1", near(one, spam, 0.01), "\(one) vs \(spam)")
+// The burst must hold no matter what time of day it happens (clock-boundary bug)
+var boundaryOK = true
+for offsetMinutes in stride(from: 0.0, through: 60.0, by: 1.0) {
+    let base = offsetMinutes / 1440
+    let v = est(p, none, nil, nil, (0..<10).map { report(p, false, daysAgo: 0.1 + base + Double($0) * 0.0003) }).probability
+    let single = est(p, none, nil, nil, [report(p, false, daysAgo: 0.1 + base)]).probability
+    if !near(v, single, 0.01) { boundaryOK = false }
+}
+check("spam burst counts as 1 at any time of day", boundaryOK)
 check("reports hours apart count separately", est(p, none, nil, nil, (0..<3).map { report(p, false, daysAgo: Double($0) * 0.2) }).probability < one)
 check("simulated flag carried through", est(p, none, nil, nil, [report(p, true, daysAgo: 1, simulated: true)]).usesSimulatedData)
 var ok = true
