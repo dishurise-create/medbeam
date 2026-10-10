@@ -10,7 +10,7 @@ struct TrendsView: View {
         List {
             if let med = app.selectedMedication {
                 Section {
-                    Text(med.displayName).font(.headline)
+                    Text(med.shortName).font(.headline)
                 }
             }
 
