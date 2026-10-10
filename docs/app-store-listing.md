@@ -42,7 +42,7 @@ pharmacy,medication,shortage,prescription,in stock,refill,FDA,ADHD,antibiotic,in
 **Copyright:** 2026 Dushyanth Bandarupalli
 
 ## Screenshots
-Upload design/appstore/1-home.png through 5-favorites.png (iPhone 6.5" Display, 1284 x 2778), in order.
+Upload design/appstore/1-home.png through 5-favorites.png ("iPhone with Dynamic Island (medium display)" box, 1206 x 2622), in order.
 
 ## App Review Information
 - **Sign-in required:** No
