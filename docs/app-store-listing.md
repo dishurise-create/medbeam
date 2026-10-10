@@ -35,8 +35,8 @@ No account. No name, prescription, doctor, diagnosis or insurance needed. MedBea
 IMPORTANT
 MedBeam shows estimates, not live pharmacy inventory. Always call the pharmacy to confirm. MedBeam is an information tool, not medical advice. Never change your medication or dose without talking to your doctor or pharmacist.
 
-**Keywords (100 max, 105 used)**
-pharmacy,medication,shortage,prescription,in stock,refill,FDA,drug finder,ADHD,antibiotic,inhaler,insulin
+**Keywords (100 max, 93 used)**
+pharmacy,medication,shortage,prescription,in stock,refill,FDA,ADHD,antibiotic,inhaler,insulin
 
 **Support URL:** https://dishurise-create.github.io/medbeam/support.html
 **Copyright:** 2026 Dushyanth Bandarupalli
