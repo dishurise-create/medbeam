@@ -67,21 +67,12 @@ final class AppSettings {
     var accent: Accent { didSet { save(accent.rawValue, "accent") } }
     var textSize: TextSize { didSet { save(textSize.rawValue, "textSize") } }
 
-    /// Google Places API key, kept in the iPhone's secure Keychain (not plain settings).
-    var googleAPIKey: String {
-        didSet { KeychainStore.set(googleAPIKey.trimmingCharacters(in: .whitespacesAndNewlines), for: "googlePlacesKey") }
-    }
-    var hasGoogleKey: Bool {
-        FeatureFlags.googleRatingsAndHours && !googleAPIKey.trimmingCharacters(in: .whitespaces).isEmpty
-    }
-
     init() {
         let d = UserDefaults.standard
         theme = Theme(rawValue: d.string(forKey: "theme") ?? "") ?? .system
         background = Background(rawValue: d.string(forKey: "background") ?? "") ?? .standard
         accent = Accent(rawValue: d.string(forKey: "accent") ?? "") ?? .brand
         textSize = TextSize(rawValue: d.string(forKey: "textSize") ?? "") ?? .standard
-        googleAPIKey = KeychainStore.get("googlePlacesKey") ?? ""
     }
 
     private func save(_ value: String, _ key: String) {

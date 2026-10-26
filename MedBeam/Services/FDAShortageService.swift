@@ -106,12 +106,7 @@ struct FDAShortageService {
             byCompany[company] = record
         }
         let manufacturers = byCompany.map { company, record in
-            ManufacturerSupply(
-                company: company,
-                category: category(record.availability),
-                rawAvailability: record.availability,
-                updateDate: date(record.update_date)
-            )
+            ManufacturerSupply(company: company, category: category(record.availability))
         }.sorted { $0.company < $1.company }
 
         return ShortageStatus(

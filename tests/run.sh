@@ -6,7 +6,7 @@ cd "$(dirname "$0")/.."
 OUT=$(mktemp -d)
 SRC=(MedBeam/Engine/*.swift MedBeam/Models/*.swift MedBeam/Config/*.swift
      MedBeam/Services/FDAShortageService.swift MedBeam/Services/SupplyRiskService.swift MedBeam/Services/RxNormService.swift
-     MedBeam/Services/CommunityReportService.swift MedBeam/Services/ReportStore.swift MedBeam/Services/GooglePlacesService.swift
+     MedBeam/Services/CommunityReportService.swift MedBeam/Services/ReportStore.swift
      MedBeam/Services/PharmacySearchService.swift)
 echo "== Offline tests =="
 swiftc -o "$OUT/offline" tests/offline/main.swift $SRC 2>&1 | grep -E "error" || true

@@ -254,7 +254,7 @@ struct ResultsView: View {
 
             ForEach(Array(ranked.enumerated()), id: \.element.pharmacy.id) { index, item in
                 Button { sheet = .detail(item.pharmacy) } label: {
-                    PharmacyRow(pharmacy: item.pharmacy, estimate: item.estimate, place: app.placeDetails[item.pharmacy.id])
+                    PharmacyRow(pharmacy: item.pharmacy, estimate: item.estimate)
                 }
                 .buttonStyle(.plain)
                 .modifier(AppearAnimation(index: index))
@@ -504,7 +504,6 @@ private struct MapButton: View {
 struct PharmacyRow: View {
     let pharmacy: Pharmacy
     let estimate: AvailabilityEstimate
-    let place: PlaceDetails?
 
     var body: some View {
         HStack(spacing: 12) {
@@ -512,22 +511,9 @@ struct PharmacyRow: View {
             VStack(alignment: .leading, spacing: 4) {
                 Text(pharmacy.name).font(.headline).foregroundStyle(.primary).lineLimit(1)
                 Text(pharmacy.address).font(.caption).foregroundStyle(.secondary).lineLimit(1)
-                HStack(spacing: 6) {
-                    Text(String(format: "%.1f mi", pharmacy.distanceMiles))
-                    if let rating = place?.rating {
-                        Text("·")
-                        Label(String(format: "%.1f", rating), systemImage: "star.fill")
-                            .labelStyle(.titleAndIcon)
-                            .foregroundStyle(.orange)
-                    }
-                    if let status = place?.openStatusText {
-                        Text("·")
-                        Text(status).foregroundStyle(place?.isOpenNow == true ? .green : .red)
-                    }
-                }
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
+                Text(String(format: "%.1f mi", pharmacy.distanceMiles))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
             Spacer(minLength: 8)
             VStack(alignment: .trailing, spacing: 4) {

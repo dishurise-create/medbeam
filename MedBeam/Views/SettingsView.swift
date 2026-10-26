@@ -4,8 +4,6 @@ struct SettingsView: View {
     @Environment(AppState.self) private var app
     @Environment(AppSettings.self) private var settings
     @State private var confirmDelete = false
-    @State private var keyDraft = ""
-    @State private var showKey = false
     @State private var versionTaps = 0
     @AppStorage("showPresentationTools") private var showPresentationTools = false
 
@@ -42,53 +40,6 @@ struct SettingsView: View {
                 Text("Preview: Adderall XR 20 mg, 89% at CVS Pharmacy")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
-            }
-
-            // MARK: Ratings & hours (turned off in the App Store version — see FeatureFlags)
-            if FeatureFlags.googleRatingsAndHours {
-            Section {
-                HStack {
-                    Group {
-                        if showKey {
-                            TextField("Paste API key", text: $keyDraft)
-                        } else {
-                            SecureField("Paste API key", text: $keyDraft)
-                        }
-                    }
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-                    .font(.system(.body, design: .monospaced))
-                    Button { showKey.toggle() } label: {
-                        Image(systemName: showKey ? "eye.slash" : "eye")
-                    }
-                    .buttonStyle(.borderless)
-                    .accessibilityLabel(showKey ? "Hide key" : "Show key")
-                }
-                HStack {
-                    Button("Save key") {
-                        settings.googleAPIKey = keyDraft
-                        Task { await app.findPharmacies(force: true) }
-                    }
-                    .disabled(keyDraft == settings.googleAPIKey)
-                    Spacer()
-                    if settings.hasGoogleKey {
-                        Label("Connected", systemImage: "checkmark.circle.fill").foregroundStyle(.green).font(.subheadline)
-                    }
-                }
-                if settings.hasGoogleKey {
-                    Button("Remove key", role: .destructive) {
-                        settings.googleAPIKey = ""
-                        keyDraft = ""
-                    }
-                }
-                if let error = app.googleError {
-                    Label(error, systemImage: "exclamationmark.triangle").font(.footnote).foregroundStyle(.orange)
-                }
-            } header: {
-                Text("Ratings & hours (Google)")
-            } footer: {
-                Text("Apple Maps doesn't share ratings or hours with apps, so MedBeam can get them from Google Places. Create a key in Google Cloud Console with \"Places API (New)\" enabled. Google includes a free monthly allowance; billing must be turned on. The key is stored in your iPhone's Keychain.")
-            }
             }
 
             // MARK: Data
@@ -150,7 +101,6 @@ struct SettingsView: View {
         }
         .appBackground()
         .navigationTitle("Settings")
-        .onAppear { keyDraft = settings.googleAPIKey }
         .confirmationDialog("Delete all data?", isPresented: $confirmDelete, titleVisibility: .visible) {
             Button("Delete reports and history", role: .destructive) {
                 app.reports.clearAll()

@@ -34,10 +34,6 @@ final class AppState {
     private(set) var isSearchingArea = false
     var errorMessage: String?
 
-    /// Google ratings + hours, keyed by pharmacy ID. Empty if no API key is set.
-    private(set) var placeDetails: [String: PlaceDetails] = [:]
-    private(set) var googleError: String?
-
     /// ZIP + medication of the last finished search, so returning to the map doesn't search again.
     private var lastSearchKey: String?
 
@@ -106,15 +102,13 @@ final class AppState {
 
     func findPharmacies(force: Bool = false) async {
         guard let medication = selectedMedication, isZipValid else { return }
-        let key = "\(zip)|\(medication.rxcui)|\(settings.hasGoogleKey)"
+        let key = "\(zip)|\(medication.rxcui)"
         if !force { areaOverride = nil }
         guard force || key != lastSearchKey || pharmacies.isEmpty else { return }
         isLoading = true
         errorMessage = nil
-        googleError = nil
         // Clear the previous search so nothing stale shows if this one fails
         pharmacies = []
-        placeDetails = [:]
         shortage = nil
         supplyRisk = nil
         drugSignals = nil
@@ -145,10 +139,9 @@ final class AppState {
             seedDemoData()
             if areaOverride == nil { history.record(zip: zip, medication: medication, fdaStatus: status.headline, pharmacyCount: pharmacies.count) }
             async let community: Void = reports.syncCommunity(rxcui: medication.rxcui, center: center, radiusMiles: searchRadiusMiles)
-            async let google: Void = loadGoogleDetails(center: center)
             async let risk: Void = loadSupplyRisk(details: details, shortage: status)
             async let volume: Void = loadPrescriptionVolume(details: details)
-            _ = await (community, google, risk, volume)
+            _ = await (community, risk, volume)
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -183,21 +176,6 @@ final class AppState {
         var signals = drugSignals ?? DrugSignals()
         signals.yearlyPrescriptions = count
         drugSignals = signals
-    }
-
-    private func loadGoogleDetails(center: CLLocationCoordinate2D) async {
-        guard settings.hasGoogleKey else { return }
-        do {
-            let service = GooglePlacesService(apiKey: settings.googleAPIKey)
-            let found = try await service.pharmacies(near: center, radiusMeters: searchRadiusMiles * 1609.34)
-            var matched: [String: PlaceDetails] = [:]
-            for pharmacy in pharmacies {
-                if let place = GooglePlacesService.match(pharmacy, in: found) { matched[pharmacy.id] = place }
-            }
-            placeDetails = matched
-        } catch {
-            googleError = error.localizedDescription
-        }
     }
 
     // MARK: - Home screen data

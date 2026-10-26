@@ -3,7 +3,6 @@ import MapKit
 
 struct PharmacyDetailView: View {
     @Environment(AppState.self) private var app
-    @Environment(AppSettings.self) private var settings
     @Environment(\.openURL) private var openURL
     let pharmacy: Pharmacy
     let onCall: () -> Void
@@ -12,7 +11,6 @@ struct PharmacyDetailView: View {
 
     var body: some View {
         let estimate = app.estimate(for: pharmacy)
-        let place = app.placeDetails[pharmacy.id]
 
         ScrollView {
             VStack(spacing: 18) {
@@ -62,12 +60,8 @@ struct PharmacyDetailView: View {
                     ActionButton(title: "Directions", systemImage: "car.fill") {
                         pharmacy.mapItem.openInMaps(launchOptions: [MKLaunchOptionsDirectionsModeKey: MKLaunchOptionsDirectionsModeDriving])
                     }
-                    if let url = place?.googleMapsURL {
-                        ActionButton(title: "Google Maps", systemImage: "star.bubble.fill") { openURL(url) }
-                    } else {
-                        // Apple Maps' place page shows the pharmacy's hours, ratings and reviews
-                        ActionButton(title: "Hours & reviews", systemImage: "clock.fill") { pharmacy.mapItem.openInMaps() }
-                    }
+                    // Apple Maps' place page shows the pharmacy's hours, ratings and reviews
+                    ActionButton(title: "Hours & reviews", systemImage: "clock.fill") { pharmacy.mapItem.openInMaps() }
                 }
 
                 Button(action: onReport) {
@@ -75,8 +69,6 @@ struct PharmacyDetailView: View {
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(BrandButtonStyle())
-
-                ratingAndHours(place)
 
                 // The details, tucked away
                 DisclosureGroup(isExpanded: $showWhy) {
@@ -139,44 +131,6 @@ struct PharmacyDetailView: View {
         items += others.map { Highlight(text: $0.short, up: $0.effect > 0) }
         return items
     }
-
-    @ViewBuilder
-    private func ratingAndHours(_ place: PlaceDetails?) -> some View {
-        if let place {
-            VStack(alignment: .leading, spacing: 8) {
-                if let rating = place.rating {
-                    HStack(spacing: 6) {
-                        Text(String(format: "%.1f", rating)).font(.title3.bold())
-                        StarRating(rating: rating)
-                        if let count = place.ratingCount {
-                            Text("(\(count.formatted()))").font(.subheadline).foregroundStyle(.secondary)
-                        }
-                    }
-                    .accessibilityElement(children: .ignore)
-                    .accessibilityLabel("Rated \(String(format: "%.1f", rating)) out of 5 from \(place.ratingCount ?? 0) reviews")
-                }
-                if let status = place.openStatusText {
-                    Label(status, systemImage: "clock.fill")
-                        .foregroundStyle(place.isOpenNow == true ? .green : .red)
-                        .font(.subheadline.weight(.semibold))
-                }
-                if !place.weeklyHours.isEmpty {
-                    DisclosureGroup("Weekly hours") {
-                        ForEach(place.weeklyHours, id: \.self) { line in
-                            Text(line).font(.subheadline).frame(maxWidth: .infinity, alignment: .leading)
-                        }
-                    }
-                }
-                Text("Ratings and hours from Google. Pharmacy counter hours may differ from store hours.")
-                    .font(.caption2).foregroundStyle(.secondary)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .card()
-        } else if FeatureFlags.googleRatingsAndHours && !settings.hasGoogleKey {
-            Label("Add a Google API key in Settings to see ratings and hours here.", systemImage: "star.bubble")
-                .font(.footnote).foregroundStyle(.secondary)
-        }
-    }
 }
 
 /// One public-data factor: an arrow for its direction, plus the detail.
@@ -205,21 +159,6 @@ private struct FactorLine: View {
         }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(factor.name): \(factor.direction). \(factor.detail)")
-    }
-}
-
-private struct StarRating: View {
-    let rating: Double
-
-    var body: some View {
-        HStack(spacing: 2) {
-            ForEach(0..<5) { i in
-                let fill = rating - Double(i)
-                Image(systemName: fill >= 0.75 ? "star.fill" : fill >= 0.25 ? "star.leadinghalf.filled" : "star")
-                    .foregroundStyle(.orange)
-                    .font(.subheadline)
-            }
-        }
     }
 }
 

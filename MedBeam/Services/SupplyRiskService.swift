@@ -32,7 +32,6 @@ struct SupplyRisk {
     }
 
     let factors: [Factor]
-    let checkedAt: Date
     var signals = DrugSignals()
 
     /// True when the FDA officially lists this medication as in shortage.
@@ -93,7 +92,7 @@ struct SupplyRiskService {
             factors.append(Self.priceFactor(change))
             signals.priceChange = change
         } else { missing.append("Medicaid NADAC price survey") }
-        return SupplyRisk(factors: factors, checkedAt: .now, signals: signals,
+        return SupplyRisk(factors: factors, signals: signals,
                           officialShortage: shortage.level == .active, unavailableSources: missing)
     }
 
@@ -170,10 +169,17 @@ struct SupplyRiskService {
 
     // MARK: - Data fetching (each returns nil if the data isn't available)
 
-    private nonisolated func fetchJSON(_ url: URL) async -> [String: Any]? {
-        guard let (data, response) = try? await URLSession.shared.data(from: url),
-              (response as? HTTPURLResponse)?.statusCode == 200 else { return nil }
-        return (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+    /// Rows from a Medicaid dataset whose NDC is in `ndcs`.
+    private func medicaidRows(dataset: String, ndcs: [String], extra: [URLQueryItem] = [],
+                              limit: Int, timeout: TimeInterval = 60) async -> [[String: Any]]? {
+        var components = URLComponents(string: "https://data.medicaid.gov/api/1/datastore/query/\(dataset)/0")!
+        components.queryItems = [URLQueryItem(name: "conditions[0][property]", value: "ndc"),
+                                 URLQueryItem(name: "conditions[0][operator]", value: "in"),
+                                 URLQueryItem(name: "limit", value: "\(limit)")]
+            + extra
+            + ndcs.map { URLQueryItem(name: "conditions[0][value][]", value: $0) }
+        guard let url = components.url, let json = await fetchJSON(url, timeout: timeout) else { return nil }
+        return json["results"] as? [[String: Any]]
     }
 
     private func rxcuiQuery(_ rxcuis: [String]) -> String {
@@ -241,21 +247,10 @@ struct SupplyRiskService {
         let all = await withBrandAndGenericEquivalents(rxcuis)
         let ndcs = await ndcCodes(rxcuis: all, limit: 150)
         guard !ndcs.isEmpty, let dataset = await MedicaidDatasets.shared.utilizationDataset() else { return nil }
-        var components = URLComponents(string: "https://data.medicaid.gov/api/1/datastore/query/\(dataset)/0")!
-        var items = [URLQueryItem(name: "conditions[0][property]", value: "ndc"),
-                     URLQueryItem(name: "conditions[0][operator]", value: "in"),
-                     URLQueryItem(name: "conditions[1][property]", value: "state"),
-                     URLQueryItem(name: "conditions[1][value]", value: "XX"),   // XX = national totals
-                     URLQueryItem(name: "limit", value: "3000")]
-        items += ndcs.map { URLQueryItem(name: "conditions[0][value][]", value: $0) }
-        components.queryItems = items
-        guard let url = components.url else { return nil }
-        var request = URLRequest(url: url)
-        request.timeoutInterval = 45
-        guard let (data, response) = try? await URLSession.shared.data(for: request),
-              (response as? HTTPURLResponse)?.statusCode == 200,
-              let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
-              let rows = json["results"] as? [[String: Any]] else { return nil }
+        let national = [URLQueryItem(name: "conditions[1][property]", value: "state"),
+                        URLQueryItem(name: "conditions[1][value]", value: "XX")]   // XX = national totals
+        guard let rows = await medicaidRows(dataset: dataset, ndcs: ndcs, extra: national, limit: 3000, timeout: 45)
+        else { return nil }
         let total = rows.reduce(0.0) { $0 + (Double($1["number_of_prescriptions"] as? String ?? "") ?? 0) }
         // Zero almost always means the product codes didn't match, not that nobody takes it
         return total > 0 ? Int(total) : nil
@@ -288,14 +283,7 @@ struct SupplyRiskService {
         var byDate: [String: [Double]] = [:]
         for dataset in datasets {
             if Self.threeMonthChange(byDate) != nil { break }
-            var components = URLComponents(string: "https://data.medicaid.gov/api/1/datastore/query/\(dataset)/0")!
-            var items = [URLQueryItem(name: "conditions[0][property]", value: "ndc"),
-                         URLQueryItem(name: "conditions[0][operator]", value: "in"),
-                         URLQueryItem(name: "limit", value: "1500")]
-            items += ndcs.map { URLQueryItem(name: "conditions[0][value][]", value: $0) }
-            components.queryItems = items
-            guard let url = components.url, let json = await fetchJSON(url),
-                  let rows = json["results"] as? [[String: Any]] else { continue }
+            guard let rows = await medicaidRows(dataset: dataset, ndcs: ndcs, limit: 1500) else { continue }
             for row in rows {
                 guard let date = row["effective_date"] as? String,
                       let price = Double(row["nadac_per_unit"] as? String ?? "") else { continue }
@@ -321,47 +309,51 @@ struct SupplyRiskService {
     }
 }
 
+/// Downloads a JSON object. Returns nil on any error or non-200 response.
+func fetchJSON(_ url: URL, timeout: TimeInterval = 60) async -> [String: Any]? {
+    var request = URLRequest(url: url)
+    request.timeoutInterval = timeout
+    guard let (data, response) = try? await URLSession.shared.data(for: request),
+          (response as? HTTPURLResponse)?.statusCode == 200 else { return nil }
+    return (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+}
+
 /// Finds the current Medicaid datasets (a new one is published each year).
 actor MedicaidDatasets {
     static let shared = MedicaidDatasets()
-    private var cached: [String]?
+    private var nadac: [String]?
     private var utilization: String?
 
     /// "State Drug Utilization Data" for the most recent complete year.
     func utilizationDataset() async -> String? {
         if let utilization { return utilization }
-        guard let url = URL(string: "https://data.medicaid.gov/api/1/search?fulltext=State%20Drug%20Utilization%20Data&page-size=40"),
-              let (data, _) = try? await URLSession.shared.data(from: url),
-              let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
-              let results = json["results"] as? [String: [String: Any]] else { return nil }
-        let prefix = "State Drug Utilization Data "
-        let thisYear = Calendar.current.component(.year, from: .now)
-        let yearly = results.values.compactMap { item -> (Int, String)? in
-            guard let title = item["title"] as? String, title.hasPrefix(prefix),
-                  let year = Int(title.dropFirst(prefix.count)),
-                  let id = item["identifier"] as? String else { return nil }
-            return (year, id)
-        }.sorted { $0.0 > $1.0 }
+        let yearly = await datasets(search: "State%20Drug%20Utilization%20Data", titlePrefix: "State Drug Utilization Data ")
         // Prefer last year (complete); this year's data is still filling in
-        utilization = (yearly.first { $0.0 < thisYear } ?? yearly.first)?.1
+        let thisYear = Calendar.current.component(.year, from: .now)
+        utilization = (yearly.first { $0.year < thisYear } ?? yearly.first)?.id
         return utilization
     }
 
+    /// The two newest NADAC price datasets (this year and last).
     func latestTwo() async -> [String]? {
-        if let cached { return cached }
-        guard let url = URL(string: "https://data.medicaid.gov/api/1/search?fulltext=National%20Average%20Drug%20Acquisition%20Cost&page-size=30"),
-              let (data, _) = try? await URLSession.shared.data(from: url),
-              let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
-              let results = json["results"] as? [String: [String: Any]] else { return nil }
-        let prefix = "NADAC (National Average Drug Acquisition Cost) "
-        let yearly = results.values.compactMap { item -> (Int, String)? in
-            guard let title = item["title"] as? String, title.hasPrefix(prefix),
-                  let year = Int(title.dropFirst(prefix.count)),
+        if let nadac { return nadac }
+        let yearly = await datasets(search: "National%20Average%20Drug%20Acquisition%20Cost",
+                                    titlePrefix: "NADAC (National Average Drug Acquisition Cost) ")
+        let ids = yearly.prefix(2).map(\.id)
+        nadac = ids.isEmpty ? nil : ids
+        return nadac
+    }
+
+    /// Datasets titled "<titlePrefix><year>", newest first.
+    private func datasets(search: String, titlePrefix: String) async -> [(year: Int, id: String)] {
+        guard let url = URL(string: "https://data.medicaid.gov/api/1/search?fulltext=\(search)&page-size=40"),
+              let json = await fetchJSON(url),
+              let results = json["results"] as? [String: [String: Any]] else { return [] }
+        return results.values.compactMap { item -> (year: Int, id: String)? in
+            guard let title = item["title"] as? String, title.hasPrefix(titlePrefix),
+                  let year = Int(title.dropFirst(titlePrefix.count)),
                   let id = item["identifier"] as? String else { return nil }
             return (year, id)
-        }.sorted { $0.0 > $1.0 }
-        let ids = yearly.prefix(2).map(\.1)
-        cached = ids.isEmpty ? nil : ids
-        return cached
+        }.sorted { $0.year > $1.year }
     }
 }

@@ -18,7 +18,7 @@ func report(_ p: Pharmacy, _ yes: Bool, daysAgo: Double, rx: String = "1", simul
                        result: yes ? .inStock : .outOfStock, timestamp: Date.now.addingTimeInterval(-daysAgo * 86400), isSimulated: simulated)
 }
 func status(_ level: ShortageStatus.Level, _ cats: [ManufacturerSupply.Category] = []) -> ShortageStatus {
-    ShortageStatus(level: level, manufacturers: cats.enumerated().map { .init(company: "M\($0.offset)", category: $0.element, rawAvailability: nil, updateDate: nil) },
+    ShortageStatus(level: level, manufacturers: cats.enumerated().map { .init(company: "M\($0.offset)", category: $0.element) },
                    initialPostingDate: nil, lastUpdated: nil, fetchedAt: .now)
 }
 func recall(_ cls: String = "Class II") -> SupplyRiskService.Recall { .init(date: .now, firm: "X", classification: cls) }
@@ -174,7 +174,7 @@ typealias S = SupplyRiskService
 func risk(_ s: ShortageStatus, makers: Int, recalls: Int, price: Double?) -> SupplyRisk {
     var f = [S.shortageFactor(s)!, S.makersFactor(makers), S.recallFactor((0..<recalls).map { _ in recall() })]
     if let price { f.append(S.priceFactor(price)) }
-    return SupplyRisk(factors: f, checkedAt: .now, officialShortage: s.level == .active, unavailableSources: [])
+    return SupplyRisk(factors: f, officialShortage: s.level == .active, unavailableSources: [])
 }
 check("healthy generic → Low", risk(none, makers: 10, recalls: 0, price: -0.05).level == .low)
 check("official shortage always ≥ Elevated", risk(allOK, makers: 20, recalls: 0, price: -0.2).level == .elevated)
@@ -207,9 +207,6 @@ section("Community reports and other")
 check("server date with 6 decimals parses", CommunityReportService.parseDate("2026-09-24T01:02:03.123456+00:00") != nil
       && CommunityReportService.parseDate("2026-09-24T01:02:03+00:00") != nil)
 check("ISO string safe for URLs", !CommunityReportService.isoString(.now).contains("+"))
-let gp = try GooglePlacesService.parse(#"{"places":[{"displayName":{"text":"CVS Pharmacy"},"location":{"latitude":39,"longitude":-77.5},"rating":3.4,"userRatingCount":212,"currentOpeningHours":{"openNow":true,"nextCloseTime":"2026-09-24T01:00:00Z"}}]}"#.data(using: .utf8)!)
-check("Google response parses (feature is off, code kept)", gp.first?.rating == 3.4 && gp.first?.isOpenNow == true)
-check("Google feature is OFF for release", FeatureFlags.googleRatingsAndHours == false)
 
 let store = await ReportStore(service: nil)   // nil = never touches the real database
 await store.clearAll()

@@ -32,8 +32,6 @@ struct LocalTrend {
     let direction: Direction
     /// Our model's warning. This is NEVER an official FDA shortage.
     let earlyWarning: String?
-    /// How many pharmacies individually show a drop
-    let decliningPharmacies: Int
     let usesSimulatedData: Bool
 }
 
@@ -79,7 +77,6 @@ enum TrendAnalyzer {
             points: points,
             direction: direction,
             earlyWarning: warning,
-            decliningPharmacies: declining,
             usesSimulatedData: local.contains { $0.isSimulated }
         )
     }

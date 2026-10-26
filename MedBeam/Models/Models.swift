@@ -94,8 +94,6 @@ struct AvailabilityReport: Codable, Identifiable {
     /// True for reports downloaded from other users (never saved on this iPhone).
     var fromCommunity: Bool? = nil
 
-    var isCommunity: Bool { fromCommunity == true }
-
     var location: CLLocation { CLLocation(latitude: latitude, longitude: longitude) }
 }
 
@@ -111,8 +109,6 @@ struct ManufacturerSupply: Identifiable {
 
     let company: String
     let category: Category
-    let rawAvailability: String?
-    let updateDate: Date?
 
     var id: String { company }
 }
