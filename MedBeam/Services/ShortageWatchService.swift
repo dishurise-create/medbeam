@@ -27,6 +27,8 @@ struct DrugShortageSummary {
     let unavailable: Int
     let lastUpdated: Date?
 
+    static let empty = DrugShortageSummary(listedProducts: 0, limited: 0, unavailable: 0, lastUpdated: nil)
+
     var inShortage: Bool { listedProducts > 0 }
     var headline: String {
         guard inShortage else { return "No FDA shortage" }
@@ -40,16 +42,8 @@ struct ShortageWatchService {
     func summary(for drug: WatchedDrug) async throws -> DrugShortageSummary {
         let term = drug.fdaTerm.replacingOccurrences(of: " ", with: "+")
         let search = "generic_name:%22\(term)%22+AND+status:%22Current%22"
-        guard let url = URL(string: "https://api.fda.gov/drug/shortages.json?search=\(search)&limit=1000") else {
-            return DrugShortageSummary(listedProducts: 0, limited: 0, unavailable: 0, lastUpdated: nil)
-        }
-        let (data, response) = try await URLSession.shared.data(from: url)
-        // openFDA answers 404 when there are no matching records = no current shortage
-        if (response as? HTTPURLResponse)?.statusCode == 404 {
-            return DrugShortageSummary(listedProducts: 0, limited: 0, unavailable: 0, lastUpdated: nil)
-        }
-        struct Response: Decodable { let results: [ShortageRecord]? }
-        let records = try JSONDecoder().decode(Response.self, from: data).results ?? []
+        guard let url = URL(string: "https://api.fda.gov/drug/shortages.json?search=\(search)&limit=1000") else { return .empty }
+        let records = try await FDAShortageService.records(url)
         let categories = records.map { FDAShortageService.category($0.availability) }
         return DrugShortageSummary(
             listedProducts: records.count,

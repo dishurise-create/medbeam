@@ -126,12 +126,7 @@ struct FDAShortageService {
         return .unknown
     }
 
-    private static let dateFormatter: DateFormatter = {
-        let f = DateFormatter()
-        f.dateFormat = "MM/dd/yyyy"
-        f.locale = Locale(identifier: "en_US_POSIX")
-        return f
-    }()
+    private static let dateFormatter = DateFormatter.fixed("MM/dd/yyyy")
 
     static func date(_ text: String?) -> Date? {
         text.flatMap { dateFormatter.date(from: $0) }
@@ -145,10 +140,24 @@ struct FDAShortageService {
 
     private func fetch(search: String) async throws -> [ShortageRecord] {
         guard let url = URL(string: "\(base)?search=\(search)&limit=100") else { return [] }
+        return try await Self.records(url)
+    }
+
+    /// Downloads shortage records. openFDA answers 404 when nothing matches, which just means "no records".
+    static func records(_ url: URL) async throws -> [ShortageRecord] {
         let (data, response) = try await URLSession.shared.data(from: url)
-        // openFDA answers 404 when nothing matches — that just means "no records"
-        if let http = response as? HTTPURLResponse, http.statusCode == 404 { return [] }
+        if (response as? HTTPURLResponse)?.statusCode == 404 { return [] }
         return try JSONDecoder().decode(ShortageResponse.self, from: data).results ?? []
+    }
+}
+
+extension DateFormatter {
+    /// A formatter for a fixed date format like "yyyy-MM-dd" (not affected by the phone's region).
+    static func fixed(_ format: String) -> DateFormatter {
+        let f = DateFormatter()
+        f.dateFormat = format
+        f.locale = Locale(identifier: "en_US_POSIX")
+        return f
     }
 }
 

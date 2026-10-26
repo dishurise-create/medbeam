@@ -182,6 +182,15 @@ struct SupplyRiskService {
         return json["results"] as? [[String: Any]]
     }
 
+    /// openFDA results. Empty when nothing matches (openFDA answers 404), nil if the request failed.
+    private func openFDAResults(_ url: URL) async -> [[String: Any]]? {
+        guard let (data, response) = try? await URLSession.shared.data(from: url) else { return nil }
+        let status = (response as? HTTPURLResponse)?.statusCode
+        if status == 404 { return [] }
+        guard status == 200, let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else { return nil }
+        return json["results"] as? [[String: Any]]
+    }
+
     private func rxcuiQuery(_ rxcuis: [String]) -> String {
         "(" + rxcuis.map { "openfda.rxcui:%22\($0)%22" }.joined(separator: "+") + ")"
     }
@@ -189,8 +198,7 @@ struct SupplyRiskService {
     /// Distinct FDA application numbers = distinct approved products (repackagers share the original's number).
     private func approvedProductCount(rxcuis: [String]) async -> (count: Int, schedule: String)? {
         guard let url = URL(string: "https://api.fda.gov/drug/ndc.json?search=\(rxcuiQuery(rxcuis))&limit=1000"),
-              let json = await fetchJSON(url),
-              let results = json["results"] as? [[String: Any]], !results.isEmpty else { return nil }
+              let results = await openFDAResults(url), !results.isEmpty else { return nil }
         let applications = Set(results.compactMap { $0["application_number"] as? String })
         guard !applications.isEmpty else { return nil }
         // DEA schedule ("CII", "CIII", ...) — missing means not a controlled substance
@@ -199,20 +207,12 @@ struct SupplyRiskService {
     }
 
     private func recentRecalls(rxcuis: [String]) async -> [Recall]? {
-        let f = DateFormatter()
-        f.dateFormat = "yyyyMMdd"
-        f.locale = Locale(identifier: "en_US_POSIX")
+        let f = DateFormatter.fixed("yyyyMMdd")
         let from = f.string(from: Date.now.addingTimeInterval(-182 * 86_400))
         let to = f.string(from: .now)
         let search = "\(rxcuiQuery(rxcuis))+AND+report_date:%5B\(from)+TO+\(to)%5D"
-        guard let url = URL(string: "https://api.fda.gov/drug/enforcement.json?search=\(search)&limit=100") else { return nil }
-        let (data, response): (Data, URLResponse)
-        do { (data, response) = try await URLSession.shared.data(from: url) } catch { return nil }
-        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
-        if status == 404 { return [] }   // openFDA: no matching recalls
-        guard status == 200,
-              let json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
-              let results = json["results"] as? [[String: Any]] else { return nil }
+        guard let url = URL(string: "https://api.fda.gov/drug/enforcement.json?search=\(search)&limit=100"),
+              let results = await openFDAResults(url) else { return nil }
         return results.compactMap { r in
             guard let dateText = r["report_date"] as? String, let date = f.date(from: dateText) else { return nil }
             return Recall(date: date, firm: r["recalling_firm"] as? String ?? "Unknown",
@@ -295,9 +295,7 @@ struct SupplyRiskService {
 
     /// Compares the latest average price with the average ~90 days earlier.
     static func threeMonthChange(_ byDate: [String: [Double]]) -> Double? {
-        let f = DateFormatter()
-        f.dateFormat = "yyyy-MM-dd"
-        f.locale = Locale(identifier: "en_US_POSIX")
+        let f = DateFormatter.fixed("yyyy-MM-dd")
         let points = byDate.compactMap { key, prices -> (Date, Double)? in
             guard let date = f.date(from: key), !prices.isEmpty else { return nil }
             return (date, prices.reduce(0, +) / Double(prices.count))
